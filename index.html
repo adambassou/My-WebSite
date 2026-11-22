@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -44,7 +44,6 @@
       return String(num).padStart(2, '0');
     }
 
-    // خلفية سوداء صافية بالكامل بدون طريق أو أضواء، مع ذرات ظلامية خفيفة تتحرك لتعطي إحساس المشي في الفراغ
     const darkMotionSpecks = Array.from({ length: 45 }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
@@ -57,7 +56,6 @@
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, width, height);
 
-      // حركة خفيفة جداً في الظلام توحي بتقدم البطريق للأمام
       darkMotionSpecks.forEach((s) => {
         s.y += s.vy;
         if (s.y > height) {
@@ -69,7 +67,6 @@
       });
     }
 
-    // رسم البطريق من الخلف في نفس مكانه تماماً بتفاصيل واقعية أكثر (ريش ناعم متدرج، ظلال طبيعية، وتاج ذهبي بأحجار بنفسجية)
     function drawRealisticBlackPenguinFromBack(time) {
       const centerX = width * 0.5;
       const groundY = height * 0.74;
@@ -85,7 +82,6 @@
       const bodyW = 94 * scale;
       const bodyH = 166 * scale;
 
-      // ظل أرضي ناعم تحت البطريق
       const groundShadow = ctx.createRadialGradient(
         centerX, groundY + 4, 2,
         centerX, groundY + 4, bodyW * 0.85
@@ -97,7 +93,6 @@
       ctx.ellipse(centerX, groundY + 4, bodyW * 0.8, 14 * scale, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // --- القدمان الصغيرتان الواقعيتان ---
       function drawSmallFoot(offsetX, stepVal) {
         const lift = Math.max(0, stepVal) * 6.5;
         const forwardShift = stepVal * 4.5;
@@ -109,9 +104,9 @@
         ctx.scale(footScale, footScale);
 
         const footGrad = ctx.createLinearGradient(0, -10 * scale, 0, 4 * scale);
-        footGrad.addColorStop(0, '#2a2d36');
-        footGrad.addColorStop(0.5, '#14161c');
-        footGrad.addColorStop(1, '#08090c');
+        footGrad.addColorStop(0, '#07080a');
+        footGrad.addColorStop(0.5, '#030304');
+        footGrad.addColorStop(1, '#000000');
 
         ctx.fillStyle = footGrad;
         ctx.strokeStyle = 'rgba(190, 200, 218, 0.32)';
@@ -127,7 +122,6 @@
         ctx.fill();
         ctx.stroke();
 
-        // تقسيم أصابع القدم الواقعية بظل خفيف
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.65)';
         ctx.lineWidth = 1 * scale;
         ctx.beginPath();
@@ -143,7 +137,6 @@
       drawSmallFoot(-bodyW * 0.24, leftStep);
       drawSmallFoot(bodyW * 0.24, rightStep);
 
-      // --- جسم البطريق الواقعي من الخلف ---
       ctx.save();
       ctx.translate(centerX, groundY - bodyBounce);
       ctx.rotate(waddleAngle);
@@ -151,14 +144,13 @@
       const leftWingAngle = -0.16 + Math.sin(stepPhase) * 0.07;
       const rightWingAngle = 0.16 + Math.sin(stepPhase) * 0.07;
 
-      // الجناح الأيسر بتجسيم ثلاثي الأبعاد
       ctx.save();
       ctx.translate(-bodyW * 0.45, -bodyH * 0.56);
       ctx.rotate(leftWingAngle);
       const lWingGrad = ctx.createLinearGradient(-14 * scale, 0, 6 * scale, 0);
-      lWingGrad.addColorStop(0, '#2c313d');
-      lWingGrad.addColorStop(0.4, '#0c0e13');
-      lWingGrad.addColorStop(1, '#030304');
+      lWingGrad.addColorStop(0, '#07080b');
+      lWingGrad.addColorStop(0.4, '#020203');
+      lWingGrad.addColorStop(1, '#000000');
       ctx.fillStyle = lWingGrad;
       ctx.strokeStyle = 'rgba(185, 195, 215, 0.28)';
       ctx.lineWidth = 1;
@@ -168,14 +160,13 @@
       ctx.stroke();
       ctx.restore();
 
-      // الجناح الأيمن بتجسيم ثلاثي الأبعاد
       ctx.save();
       ctx.translate(bodyW * 0.45, -bodyH * 0.56);
       ctx.rotate(rightWingAngle);
       const rWingGrad = ctx.createLinearGradient(-6 * scale, 0, 14 * scale, 0);
-      rWingGrad.addColorStop(0, '#030304');
-      rWingGrad.addColorStop(0.6, '#0c0e13');
-      rWingGrad.addColorStop(1, '#2c313d');
+      rWingGrad.addColorStop(0, '#000000');
+      rWingGrad.addColorStop(0.6, '#020203');
+      rWingGrad.addColorStop(1, '#07080b');
       ctx.fillStyle = rWingGrad;
       ctx.strokeStyle = 'rgba(185, 195, 215, 0.28)';
       ctx.lineWidth = 1;
@@ -185,38 +176,31 @@
       ctx.stroke();
       ctx.restore();
 
-      // تجسيم الظهر الأسود الواقعي مع انحناء الرأس والرقبة والكتفين
       const bodyGrad = ctx.createRadialGradient(
         0, -bodyH * 0.45, bodyW * 0.08,
         0, -bodyH * 0.42, bodyW * 0.62
       );
-      bodyGrad.addColorStop(0, '#14171f');
-      bodyGrad.addColorStop(0.55, '#090a0e');
-      bodyGrad.addColorStop(0.88, '#1a1e28');
-      bodyGrad.addColorStop(1, '#2e3442');
+      bodyGrad.addColorStop(0, '#030305');
+      bodyGrad.addColorStop(0.55, '#010102');
+      bodyGrad.addColorStop(0.88, '#040507');
+      bodyGrad.addColorStop(1, '#08090d');
 
       ctx.fillStyle = bodyGrad;
       ctx.beginPath();
-      // قمة الرأس المستديرة الواقعية
       ctx.moveTo(-bodyW * 0.36, -bodyH * 0.78);
       ctx.quadraticCurveTo(0, -bodyH * 0.86, bodyW * 0.36, -bodyH * 0.78);
-      // انحناء الرقبة والكتف الأيمن
       ctx.bezierCurveTo(bodyW * 0.44, -bodyH * 0.68, bodyW * 0.54, -bodyH * 0.42, bodyW * 0.51, -bodyH * 0.12);
       ctx.bezierCurveTo(bodyW * 0.49, -bodyH * 0.02, bodyW * 0.38, 2, bodyW * 0.28, 0);
-      // أسفل الظهر
       ctx.quadraticCurveTo(0, 5 * scale, -bodyW * 0.28, 0);
-      // انحناء الكتف والرقبة الأيسر
       ctx.bezierCurveTo(-bodyW * 0.38, 2, -bodyW * 0.49, -bodyH * 0.02, -bodyW * 0.51, -bodyH * 0.12);
       ctx.bezierCurveTo(-bodyW * 0.54, -bodyH * 0.42, -bodyW * 0.44, -bodyH * 0.68, -bodyW * 0.36, -bodyH * 0.78);
       ctx.closePath();
       ctx.fill();
 
-      // خط حافة ناعم يبرز حدود البطريق في الظلام
       ctx.strokeStyle = 'rgba(205, 215, 235, 0.34)';
       ctx.lineWidth = 1.2;
       ctx.stroke();
 
-      // خط عمودي خفيف في منتصف الظهر يعطي عمقاً طبيعياً للعضلات والريش
       const spineShade = ctx.createLinearGradient(0, -bodyH * 0.72, 0, -10 * scale);
       spineShade.addColorStop(0, 'rgba(0, 0, 0, 0)');
       spineShade.addColorStop(0.5, 'rgba(0, 0, 0, 0.55)');
@@ -228,7 +212,6 @@
       ctx.lineTo(0, -12 * scale);
       ctx.stroke();
 
-      // لمسات ريش ناعمة ودقيقة جداً غير مرئية كأوساخ بل كملمس طبيعي للظهر
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)';
       ctx.lineWidth = 0.8;
       for (let row = 0; row < 7; row++) {
@@ -240,10 +223,9 @@
         ctx.stroke();
       }
 
-      // ذيل البطريق الصغير المجسم
       const tailGrad = ctx.createLinearGradient(0, -12 * scale, 0, 4 * scale);
-      tailGrad.addColorStop(0, '#14171f');
-      tailGrad.addColorStop(1, '#040507');
+      tailGrad.addColorStop(0, '#040507');
+      tailGrad.addColorStop(1, '#000000');
       ctx.fillStyle = tailGrad;
       ctx.strokeStyle = 'rgba(190, 200, 220, 0.28)';
       ctx.lineWidth = 0.9;
@@ -255,7 +237,6 @@
       ctx.fill();
       ctx.stroke();
 
-      // --- التاج الذهبي الفاخر مع أحجار كريمة بنفسجية ---
       const crownBaseY = -bodyH * 0.77;
       const crownW = bodyW * 0.40;
       const crownH = bodyH * 0.31;
@@ -284,7 +265,6 @@
       ctx.fill();
       ctx.stroke();
 
-      // قاعدة التاج الذهبية المنحنية لتلتف حول الرأس بواقعية
       ctx.fillStyle = '#b88b1e';
       ctx.beginPath();
       ctx.moveTo(-crownW, crownBaseY - 4 * scale);
@@ -339,7 +319,6 @@
       ctx.restore();
     }
 
-    // عداد الوقت الحي مع الساعة والدقيقة والثانية واسم اليوم وعدد الأيام والسنة
     function drawFullTimeCounter() {
       const now = new Date();
       const year = now.getFullYear();
@@ -348,7 +327,7 @@
       const diffMs = now - startOfYear;
       const dayOfYear = Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
 
-      const dayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+      const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
       const dayName = dayNames[now.getDay()];
 
       const hours = pad2(now.getHours());
@@ -362,13 +341,11 @@
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
-      // الساعة : الدقيقة : الثانية
       const mainFontSize = Math.min(34, Math.max(22, width * 0.065));
       ctx.font = `300 ${mainFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace`;
       ctx.fillStyle = 'rgba(240, 244, 252, 0.9)';
       ctx.fillText(`${hours} : ${minutes} : ${seconds}`, cx, topY);
 
-      // خط فاصل خافت
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -376,7 +353,6 @@
       ctx.lineTo(cx + 88, topY + mainFontSize * 0.72);
       ctx.stroke();
 
-      // اسم اليوم + عدد الأيام + السنة
       const subFontSize = Math.min(15, Math.max(12, width * 0.032));
       ctx.font = `400 ${subFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
       ctx.fillStyle = 'rgba(195, 205, 225, 0.72)';
