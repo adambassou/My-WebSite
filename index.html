@@ -81,10 +81,16 @@
   <canvas id="scene"></canvas>
   <button id="sound-btn" type="button">click here</button>
 
+  <audio id="custom-horror-audio" preload="auto" playsinline></audio>
+
   <script>
     const canvas = document.getElementById('scene');
     const ctx = canvas.getContext('2d');
     const soundBtn = document.getElementById('sound-btn');
+    const horrorAudio = document.getElementById('custom-horror-audio');
+
+    const CUSTOM_SOUND_FILE = './Jusatti890-scream-horror-sfx-490909 2.mp3';
+    horrorAudio.src = encodeURI(CUSTOM_SOUND_FILE);
 
     let width = canvas.width = window.innerWidth || 390;
     let height = canvas.height = window.innerHeight || 844;
@@ -94,7 +100,6 @@
       height = canvas.height = window.innerHeight || 844;
     });
 
-    // Load uploaded horror image placed next to index.html
     const ghostImg = new Image();
     ghostImg.src = './IMG_5669.jpeg';
 
@@ -102,13 +107,11 @@
       return String(num).padStart(2, '0');
     }
 
-    // --- Web Audio & Vibration Horror Engine (Triggered ONLY on "click here") ---
+    // --- Custom Audio & Horror Engine (Triggered ONLY on "click here" for 1 minute) ---
     const HORROR_DURATION_MS = 60000; // 1 minute
-    const HORROR_DURATION_SEC = 60;   // 1 minute
 
-    let audioCtx = null;
     let horrorFlashUntil = 0;
-    let activeSoundStopTimer = null;
+    let stopAudioTimer = null;
 
     function triggerHorrorVibration() {
       try {
@@ -118,179 +121,40 @@
       } catch (_) {}
     }
 
-    function makeDistortionCurve(amount = 160) {
-      const nSamples = 44100;
-      const curve = new Float32Array(nSamples);
-      const deg = Math.PI / 180;
-      for (let i = 0; i < nSamples; i++) {
-        const x = (i * 2) / nSamples - 1;
-        curve[i] = ((3 + amount) * x * 20 * deg) / (Math.PI + amount * Math.abs(x));
-      }
-      return curve;
-    }
+    function playCustomHorrorAudioForOneMinute() {
+      if (!horrorAudio) return;
 
-    function stopCurrentHorrorSound() {
-      if (activeSoundStopTimer) {
-        clearTimeout(activeSoundStopTimer);
-        activeSoundStopTimer = null;
-      }
-    }
-
-    function playMaxHorrorSound() {
-      if (!audioCtx || audioCtx.state !== 'running') return;
-      stopCurrentHorrorSound();
-
-      const now = audioCtx.currentTime;
-      const duration = HORROR_DURATION_SEC;
-
-      const shaper = audioCtx.createWaveShaper();
-      shaper.curve = makeDistortionCurve(160);
-      shaper.oversample = '4x';
-
-      const compressor = audioCtx.createDynamicsCompressor();
-      compressor.threshold.setValueAtTime(-3, now);
-      compressor.knee.setValueAtTime(6, now);
-      compressor.ratio.setValueAtTime(16, now);
-      compressor.attack.setValueAtTime(0.001, now);
-      compressor.release.setValueAtTime(0.2, now);
-
-      const boostGain = audioCtx.createGain();
-      boostGain.gain.setValueAtTime(1.85, now);
-
-      const masterGain = audioCtx.createGain();
-      masterGain.gain.setValueAtTime(1.0, now);
-      masterGain.gain.setValueAtTime(1.0, now + duration - 0.3);
-      masterGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-
-      boostGain.connect(shaper);
-      shaper.connect(compressor);
-      compressor.connect(masterGain);
-      masterGain.connect(audioCtx.destination);
-
-      const lfo = audioCtx.createOscillator();
-      lfo.type = 'sine';
-      lfo.frequency.setValueAtTime(25, now);
-
-      const lfoGain = audioCtx.createGain();
-      lfoGain.gain.setValueAtTime(170, now);
-      lfo.connect(lfoGain);
-
-      const shriekA = audioCtx.createOscillator();
-      shriekA.type = 'sawtooth';
-
-      const shriekB = audioCtx.createOscillator();
-      shriekB.type = 'square';
-
-      const shriekGain = audioCtx.createGain();
-
-      const subOsc = audioCtx.createOscillator();
-      subOsc.type = 'sawtooth';
-
-      const subFilter = audioCtx.createBiquadFilter();
-      subFilter.type = 'lowpass';
-      subFilter.frequency.setValueAtTime(220, now);
-
-      const subGain = audioCtx.createGain();
-
-      for (let step = 0; step < 30; step++) {
-        const tStart = now + step * 2.0;
-        const tMid = tStart + 0.6;
-        const tEnd = tStart + 1.96;
-
-        const highA = step % 2 === 0 ? 2050 : 2420;
-        const lowA = step % 2 === 0 ? 450 : 310;
-        const highB = step % 2 === 0 ? 2550 : 1890;
-        const lowB = step % 2 === 0 ? 280 : 520;
-
-        shriekA.frequency.setValueAtTime(720, tStart);
-        shriekA.frequency.exponentialRampToValueAtTime(highA, tMid);
-        shriekA.frequency.exponentialRampToValueAtTime(lowA, tEnd);
-
-        shriekB.frequency.setValueAtTime(1120, tStart);
-        shriekB.frequency.exponentialRampToValueAtTime(highB, tMid);
-        shriekB.frequency.exponentialRampToValueAtTime(lowB, tEnd);
-
-        shriekGain.gain.setValueAtTime(0.98, tStart);
-        shriekGain.gain.setValueAtTime(0.9, tStart + 1.45);
-        shriekGain.gain.exponentialRampToValueAtTime(0.22, tEnd);
-
-        subOsc.frequency.setValueAtTime(145, tStart);
-        subOsc.frequency.exponentialRampToValueAtTime(32, tStart + 1.25);
-
-        subGain.gain.setValueAtTime(1.0, tStart);
-        subGain.gain.exponentialRampToValueAtTime(0.2, tEnd);
+      if (stopAudioTimer) {
+        clearTimeout(stopAudioTimer);
+        stopAudioTimer = null;
       }
 
-      lfoGain.connect(shriekA.frequency);
-      lfoGain.connect(shriekB.frequency);
+      try {
+        horrorAudio.pause();
+        horrorAudio.currentTime = 0;
+        horrorAudio.loop = true;
+        horrorAudio.volume = 1.0;
 
-      shriekA.connect(shriekGain);
-      shriekB.connect(shriekGain);
-      shriekGain.connect(boostGain);
+        const playPromise = horrorAudio.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch(() => {});
+        }
+      } catch (_) {}
 
-      subOsc.connect(subFilter);
-      subFilter.connect(subGain);
-      subGain.connect(boostGain);
-
-      const bufferSize = Math.floor(audioCtx.sampleRate * duration);
-      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-      const output = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-        output[i] = Math.random() * 2 - 1;
-      }
-
-      const whiteNoise = audioCtx.createBufferSource();
-      whiteNoise.buffer = noiseBuffer;
-
-      const bandpass = audioCtx.createBiquadFilter();
-      bandpass.type = 'bandpass';
-      bandpass.frequency.setValueAtTime(2050, now);
-      bandpass.Q.setValueAtTime(3.2, now);
-
-      const noiseGain = audioCtx.createGain();
-      noiseGain.gain.setValueAtTime(0.95, now);
-      noiseGain.gain.setValueAtTime(0.9, now + duration - 0.4);
-      noiseGain.gain.exponentialRampToValueAtTime(0.01, now + duration);
-
-      whiteNoise.connect(bandpass);
-      bandpass.connect(noiseGain);
-      noiseGain.connect(boostGain);
-
-      lfo.start(now);
-      shriekA.start(now);
-      shriekB.start(now);
-      subOsc.start(now);
-      whiteNoise.start(now);
-
-      lfo.stop(now + duration);
-      shriekA.stop(now + duration);
-      shriekB.stop(now + duration);
-      subOsc.stop(now + duration);
-      whiteNoise.stop(now + duration);
-
-      activeSoundStopTimer = setTimeout(() => {
-        activeSoundStopTimer = null;
+      stopAudioTimer = setTimeout(() => {
+        try {
+          horrorAudio.pause();
+          horrorAudio.currentTime = 0;
+          horrorAudio.loop = false;
+        } catch (_) {}
+        stopAudioTimer = null;
       }, HORROR_DURATION_MS);
     }
 
     function triggerOnClickHere(t) {
       horrorFlashUntil = t + HORROR_DURATION_MS;
       triggerHorrorVibration();
-
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContextClass) return;
-
-      if (!audioCtx) {
-        audioCtx = new AudioContextClass();
-      }
-
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume().then(() => {
-          playMaxHorrorSound();
-        }).catch(() => {});
-      } else {
-        playMaxHorrorSound();
-      }
+      playCustomHorrorAudioForOneMinute();
     }
 
     soundBtn.addEventListener('click', (e) => {
