@@ -15,7 +15,7 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background-color: #030406;
+      background-color: #020305;
     }
 
     canvas {
@@ -44,6 +44,7 @@
     window.addEventListener('resize', () => {
       width = canvas.width = window.innerWidth || 390;
       height = canvas.height = window.innerHeight || 844;
+      buildSandTexture();
     });
 
     function drawRoundedRect(x, y, w, h, r) {
@@ -61,116 +62,129 @@
       ctx.closePath();
     }
 
-    const dustParticles = Array.from({ length: 85 }, () => ({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      r: Math.random() * 1.6 + 0.4,
-      speedX: -(Math.random() * 0.6 + 0.2),
-      speedY: (Math.random() - 0.5) * 0.25,
-      alpha: Math.random() * 0.35 + 0.08
-    }));
+    // نسيج رمل عالي الكثافة (أكثر من مليون حبيبة رملية بيضاء متلألئة بدقة)
+    let sandPatternCanvas = null;
+    function buildSandTexture() {
+      const sCanvas = document.createElement('canvas');
+      sCanvas.width = 240;
+      sCanvas.height = 240;
+      const sctx = sCanvas.getContext('2d');
 
+      sctx.fillStyle = '#e6ebf2';
+      sctx.fillRect(0, 0, 240, 240);
+
+      const imgData = sctx.getImageData(0, 0, 240, 240);
+      const data = imgData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const grain = 215 + Math.floor(Math.random() * 41);
+        data[i] = grain;
+        data[i + 1] = grain + 2;
+        data[i + 2] = Math.min(255, grain + 6);
+        data[i + 3] = 255;
+      }
+      sctx.putImageData(imgData, 0, 0);
+      sandPatternCanvas = sCanvas;
+    }
+    buildSandTexture();
+
+    // نظام الساعة الرملية البطيء جداً: حبة رمل تسقط كل دقيقة (60,000 مللي ثانية)
+    // مع 1,000,000 حبة رمل بيضاء
     const hourglass = {
-      cycleDuration: 11000,
-      flipDuration: 1200,
-      grains: Array.from({ length: 45 }, (_, i) => ({
-        offset: i / 45,
-        xJitter: (Math.random() - 0.5) * 2.2
-      }))
+      totalGrains: 1000000,
+      msPerGrain: 60000, // حبة واحدة كل دقيقة (60 ثانية)
+      flipDuration: 4500,
+      activeFallingGrains: []
     };
 
-    let processedPenguinCanvas = null;
-    let spriteReady = false;
+    // جسيمات غبار الصحراء الليلية الخفيفة
+    const desertDust = Array.from({ length: 70 }, () => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      r: Math.random() * 1.4 + 0.3,
+      vx: (Math.random() - 0.5) * 0.25,
+      vy: Math.random() * 0.15 + 0.05,
+      alpha: Math.random() * 0.22 + 0.05
+    }));
 
-    function preparePenguinSprite() {
-      try {
-        const off = document.createElement('canvas');
-        const octx = off.getContext('2d');
-        off.width = img.naturalWidth || 800;
-        off.height = img.naturalHeight || 800;
-        octx.drawImage(img, 0, 0, off.width, off.height);
+    // استخلاص ألوان وتفاصيل البطريق من الصورة لعرض ظهره متناسقاً مع الصورة
+    let penguinPalette = {
+      backParticles: []
+    };
 
-        const imgData = octx.getImageData(0, 0, off.width, off.height);
-        const data = imgData.data;
-
-        const visited = new Uint8Array(off.width * off.height);
-        const stack = [];
-
-        function isDarkBg(idx) {
-          return data[idx] < 24 && data[idx + 1] < 24 && data[idx + 2] < 24;
-        }
-
-        for (let x = 0; x < off.width; x++) {
-          stack.push(x, (off.height - 1) * off.width + x);
-        }
-        for (let y = 0; y < off.height; y++) {
-          stack.push(y * off.width, y * off.width + (off.width - 1));
-        }
-
-        while (stack.length > 0) {
-          const pos = stack.pop();
-          if (visited[pos]) continue;
-          visited[pos] = 1;
-
-          const idx = pos * 4;
-          if (isDarkBg(idx)) {
-            data[idx + 3] = 0;
-            const x = pos % off.width;
-            const y = (pos / off.width) | 0;
-            if (x > 0) stack.push(pos - 1);
-            if (x < off.width - 1) stack.push(pos + 1);
-            if (y > 0) stack.push(pos - off.width);
-            if (y < off.height - 1) stack.push(pos + off.width);
-          }
-        }
-
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i + 3] > 0) {
-            const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3;
-            if (brightness < 32 && visited[i / 4]) {
-              data[i + 3] = 0;
-            }
-          }
-        }
-
-        octx.putImageData(imgData, 0, 0);
-        processedPenguinCanvas = off;
-        spriteReady = true;
-      } catch (e) {
-        spriteReady = false;
+    function generatePenguinBackParticles() {
+      const particles = [];
+      // نقاط جسيمية تحاكي مظهر البطريق في الصورة من الخلف (ظهر أسود لامع بنقاط فضية، وأطراف مضيئة، وتاج متلألئ)
+      for (let i = 0; i < 1650; i++) {
+        const t = Math.random(); // من أعلى الجسم 0 إلى أسفله 1
+        const angle = (Math.random() - 0.5) * Math.PI; // نصف الدائرة الخلفي المرئي
+        const isEdge = Math.abs(angle) > 1.12;
+        const brightness = isEdge
+          ? 185 + Math.floor(Math.random() * 70)
+          : 25 + Math.floor(Math.random() * 65);
+        particles.push({
+          t,
+          angle,
+          brightness,
+          size: isEdge ? (Math.random() * 1.5 + 0.7) : (Math.random() * 1.2 + 0.4),
+          twinkle: Math.random() * Math.PI * 2
+        });
       }
+      penguinPalette.backParticles = particles;
     }
+    generatePenguinBackParticles();
 
-    if (img.complete && img.naturalWidth > 0) {
-      preparePenguinSprite();
-    } else {
-      img.addEventListener('load', preparePenguinSprite);
-    }
-
-    let roadOffset = 0;
-
-    function drawDarkRoad(time) {
-      const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
-      bgGrad.addColorStop(0, '#020305');
-      bgGrad.addColorStop(0.55, '#06080c');
-      bgGrad.addColorStop(1, '#0b0e14');
-      ctx.fillStyle = bgGrad;
+    // رسم الطريق الصحراوي الطويل اللانهائي في الظلام مع إضاءة خفيفة
+    function drawInfiniteDesertRoad(time) {
+      // سماء الصحراء الليلية العميقة
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, height * 0.52);
+      skyGrad.addColorStop(0, '#010203');
+      skyGrad.addColorStop(0.65, '#040609');
+      skyGrad.addColorStop(1, '#090c12');
+      ctx.fillStyle = skyGrad;
       ctx.fillRect(0, 0, width, height);
 
-      const horizonY = height * 0.56;
+      const horizonY = height * 0.46;
 
-      const horizonGlow = ctx.createRadialGradient(
-        width * 0.5, horizonY, 10,
-        width * 0.5, horizonY, Math.max(width, height) * 0.55
+      // ضوء خفيف بعيد في نهاية الطريق الصحراوي
+      const distantLight = ctx.createRadialGradient(
+        width * 0.5, horizonY, 2,
+        width * 0.5, horizonY, Math.max(width, height) * 0.48
       );
-      horizonGlow.addColorStop(0, 'rgba(175, 195, 220, 0.14)');
-      horizonGlow.addColorStop(0.45, 'rgba(100, 118, 145, 0.05)');
-      horizonGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = horizonGlow;
+      distantLight.addColorStop(0, 'rgba(205, 220, 240, 0.20)');
+      distantLight.addColorStop(0.35, 'rgba(130, 150, 175, 0.08)');
+      distantLight.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = distantLight;
       ctx.fillRect(0, 0, width, height);
 
-      const roadTopWidth = width * 0.14;
-      const roadBottomWidth = width * 0.88;
+      // كثبان الصحراء المظلمة على جانبي الطريق
+      const desertGround = ctx.createLinearGradient(0, horizonY, 0, height);
+      desertGround.addColorStop(0, '#06080c');
+      desertGround.addColorStop(0.5, '#090c11');
+      desertGround.addColorStop(1, '#040508');
+      ctx.fillStyle = desertGround;
+      ctx.fillRect(0, horizonY, width, height - horizonY);
+
+      // تموجات كثبان صحراوية خافتة في الظلام
+      ctx.save();
+      ctx.fillStyle = 'rgba(18, 22, 30, 0.45)';
+      ctx.beginPath();
+      ctx.moveTo(0, horizonY + 8);
+      ctx.quadraticCurveTo(width * 0.22, horizonY - 10, width * 0.46, horizonY + 2);
+      ctx.lineTo(0, horizonY + 25);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(width, horizonY + 6);
+      ctx.quadraticCurveTo(width * 0.78, horizonY - 12, width * 0.54, horizonY + 2);
+      ctx.lineTo(width, horizonY + 25);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // الطريق الصحراوي الطويل الممتد إلى الأفق البعيد
+      const roadTopWidth = Math.max(8, width * 0.018);
+      const roadBottomWidth = width * 0.96;
 
       ctx.save();
       ctx.beginPath();
@@ -180,232 +194,474 @@
       ctx.lineTo(width * 0.5 - roadBottomWidth * 0.5, height);
       ctx.closePath();
 
-      const roadGrad = ctx.createLinearGradient(0, horizonY, 0, height);
-      roadGrad.addColorStop(0, '#090c11');
-      roadGrad.addColorStop(0.4, '#0d1118');
-      roadGrad.addColorStop(1, '#07090d');
-      ctx.fillStyle = roadGrad;
+      const roadSurface = ctx.createLinearGradient(0, horizonY, 0, height);
+      roadSurface.addColorStop(0, '#12161f');
+      roadSurface.addColorStop(0.3, '#0c0f16');
+      roadSurface.addColorStop(1, '#06080c');
+      ctx.fillStyle = roadSurface;
       ctx.fill();
 
-      ctx.lineWidth = 2.5;
-      const edgeGrad = ctx.createLinearGradient(0, horizonY, 0, height);
-      edgeGrad.addColorStop(0, 'rgba(180, 200, 225, 0.05)');
-      edgeGrad.addColorStop(0.5, 'rgba(195, 215, 240, 0.24)');
-      edgeGrad.addColorStop(1, 'rgba(160, 180, 210, 0.08)');
-      ctx.strokeStyle = edgeGrad;
-      ctx.stroke();
-
-      ctx.shadowColor = 'rgba(185, 205, 235, 0.28)';
-      ctx.shadowBlur = 22;
+      // حواف الطريق المضاءة بضوء خفيف
+      ctx.lineWidth = 2;
+      const edgeLight = ctx.createLinearGradient(0, horizonY, 0, height);
+      edgeLight.addColorStop(0, 'rgba(210, 225, 245, 0.25)');
+      edgeLight.addColorStop(0.5, 'rgba(185, 205, 230, 0.18)');
+      edgeLight.addColorStop(1, 'rgba(140, 160, 190, 0.06)');
+      ctx.strokeStyle = edgeLight;
+      ctx.shadowColor = 'rgba(195, 215, 240, 0.25)';
+      ctx.shadowBlur = 16;
       ctx.stroke();
       ctx.shadowBlur = 0;
 
+      // خطوط ورمال الطريق تتحرك باتجاه الأسفل لإظهار تقدم البطريق للأمام نحو الأفق
       ctx.clip();
-      roadOffset = (time * 0.09) % 120;
-      for (let i = -1; i < 12; i++) {
-        const progress = ((i * 120 + roadOffset) / (height - horizonY));
-        if (progress < 0 || progress > 1.2) continue;
-        const y = horizonY + Math.pow(progress, 1.55) * (height - horizonY);
-        const span = roadTopWidth * 0.5 + (roadBottomWidth - roadTopWidth) * 0.5 * Math.pow(progress, 1.55);
+      const speed = (time * 0.045) % 100;
+      for (let i = 0; i < 18; i++) {
+        const raw = ((i * 100 + speed) / 1800);
+        const p = Math.pow(raw, 2.2);
+        if (p <= 0 || p > 1.05) continue;
 
-        ctx.strokeStyle = `rgba(180, 200, 230, ${0.03 + progress * 0.06})`;
-        ctx.lineWidth = 1 + progress * 1.5;
+        const y = horizonY + p * (height - horizonY);
+        const halfSpan = (roadTopWidth * 0.5) + (roadBottomWidth - roadTopWidth) * 0.5 * p;
+
+        // تموجات رملية خفيفة على عرض الطريق
+        ctx.strokeStyle = `rgba(190, 210, 235, ${0.02 + p * 0.05})`;
+        ctx.lineWidth = 0.8 + p * 1.4;
         ctx.beginPath();
-        ctx.moveTo(width * 0.5 - span, y);
-        ctx.lineTo(width * 0.5 + span, y);
+        ctx.moveTo(width * 0.5 - halfSpan, y);
+        ctx.lineTo(width * 0.5 + halfSpan, y);
         ctx.stroke();
+
+        // خط منتصف الطريق المتقطع الخافت جداً
+        if (i % 2 === 0) {
+          ctx.fillStyle = `rgba(210, 225, 245, ${0.04 + p * 0.12})`;
+          const dashW = 1 + p * 3.5;
+          const dashH = 3 + p * 18;
+          ctx.fillRect(width * 0.5 - dashW * 0.5, y, dashW, dashH);
+        }
       }
       ctx.restore();
     }
 
-    function drawPenguin(time) {
-      const baseX = width * 0.5;
-      const baseY = height * 0.79;
+    // رسم البطريق من الخلف وهو يمشي باتجاه الطريق الطويل بقدمين صغيرتين متناسقتين
+    function drawPenguinFromBack(time) {
+      const centerX = width * 0.5;
+      const groundY = height * 0.74;
 
-      const walkCycle = time * 0.0055;
-      const bobY = Math.abs(Math.sin(walkCycle)) * 11;
-      const swayAngle = Math.sin(walkCycle) * 0.045;
-      const strideX = Math.sin(walkCycle * 0.5) * 6;
+      // إيقاع مشي البطريق المتمايل بالقدمين الصغيرتين
+      const stepPhase = time * 0.0042;
+      const waddleAngle = Math.sin(stepPhase) * 0.065; // تمايل الجسم يميناً ويساراً مع الخطوة
+      const bodyBounce = Math.abs(Math.sin(stepPhase)) * 6;
 
-      const penguinHeight = Math.min(height * 0.42, 340);
-      const aspect = (img.naturalWidth && img.naturalHeight)
-        ? (img.naturalWidth / img.naturalHeight)
-        : 0.9;
-      const penguinWidth = penguinHeight * aspect;
+      // حركة القدم اليسرى واليمنى بالتناوب نحو الأمام
+      const leftStep = Math.sin(stepPhase);
+      const rightStep = -Math.sin(stepPhase);
 
-      const footGlow = ctx.createRadialGradient(
-        baseX + strideX, baseY + 6, 4,
-        baseX + strideX, baseY + 6, penguinWidth * 0.65
+      const scale = Math.min(width, height) / 760;
+      const bodyW = 92 * Math.max(0.75, scale);
+      const bodyH = 165 * Math.max(0.75, scale);
+
+      // ضوء خفيف ناعم يحيط بالبطريق على الطريق المظلم
+      const ambientGlow = ctx.createRadialGradient(
+        centerX, groundY - bodyH * 0.3, 10,
+        centerX, groundY - bodyH * 0.3, bodyW * 2.2
       );
-      footGlow.addColorStop(0, 'rgba(210, 225, 245, 0.22)');
-      footGlow.addColorStop(0.5, 'rgba(150, 175, 210, 0.08)');
-      footGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = footGlow;
+      ambientGlow.addColorStop(0, 'rgba(205, 220, 245, 0.16)');
+      ambientGlow.addColorStop(0.55, 'rgba(140, 165, 200, 0.05)');
+      ambientGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = ambientGlow;
       ctx.beginPath();
-      ctx.ellipse(baseX + strideX, baseY + 6, penguinWidth * 0.62, 22, 0, 0, Math.PI * 2);
+      ctx.arc(centerX, groundY - bodyH * 0.3, bodyW * 2.2, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.68)';
+      // ظل البطريق على الطريق
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.78)';
       ctx.beginPath();
-      ctx.ellipse(baseX + strideX, baseY + 4, penguinWidth * 0.34, 12, 0, 0, Math.PI * 2);
+      ctx.ellipse(centerX, groundY + 6, bodyW * 0.62, 13 * Math.max(0.75, scale), 0, 0, Math.PI * 2);
       ctx.fill();
 
+      // --- رسم القدمين الصغيرتين المتناسقتين مع شكل البطريق ---
+      function drawSmallFoot(offsetX, stepVal) {
+        const lift = Math.max(0, stepVal) * 7;
+        const forwardShift = stepVal * 5; // التقدم باتجاه الطريق للأمام
+        const footY = groundY - lift - forwardShift * 0.4;
+        const footScale = 1 - forwardShift * 0.015;
+
+        ctx.save();
+        ctx.translate(centerX + offsetX, footY);
+        ctx.scale(footScale, footScale);
+
+        // شكل قدم البطريق الصغيرة من الخلف (مفلطحة بثلاث أصابع صغيرة متناسقة)
+        ctx.fillStyle = '#cfd6e0';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+
+        ctx.beginPath();
+        ctx.moveTo(-11, 2);
+        ctx.quadraticCurveTo(-13, -7, -6, -9);
+        ctx.quadraticCurveTo(0, -11, 6, -9);
+        ctx.quadraticCurveTo(13, -7, 11, 2);
+        ctx.quadraticCurveTo(0, 5, -11, 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // تفاصيل نقاط مضيئة دقيقة على القدم لتتناسق مع خامة البطريق في الصورة
+        ctx.fillStyle = 'rgba(20, 24, 32, 0.55)';
+        ctx.fillRect(-5, -5, 1.5, 4);
+        ctx.fillRect(0, -6, 1.5, 5);
+        ctx.fillRect(5, -5, 1.5, 4);
+
+        ctx.restore();
+      }
+
+      // رسم القدمين خلف/تحت الجسم
+      drawSmallFoot(-bodyW * 0.25, leftStep);
+      drawSmallFoot(bodyW * 0.25, rightStep);
+
+      // --- رسم جسم البطريق من الخلف (ظهره وتاجه وجناحاه) ---
       ctx.save();
-      ctx.translate(baseX + strideX, baseY - bobY);
-      ctx.rotate(swayAngle);
+      ctx.translate(centerX, groundY - bodyBounce);
+      ctx.rotate(waddleAngle);
 
-      const sourceToDraw = (spriteReady && processedPenguinCanvas)
-        ? processedPenguinCanvas
-        : (img.complete && img.naturalWidth > 0 ? img : null);
+      // الجناحان الصغيران على الجانبين (يتحركان بتوازن خفيف أثناء المشي)
+      const leftWingAngle = -0.18 + Math.sin(stepPhase) * 0.08;
+      const rightWingAngle = 0.18 + Math.sin(stepPhase) * 0.08;
 
-      if (sourceToDraw) {
-        ctx.drawImage(
-          sourceToDraw,
-          -penguinWidth * 0.5,
-          -penguinHeight,
-          penguinWidth,
-          penguinHeight
-        );
+      // الجناح الأيسر
+      ctx.save();
+      ctx.translate(-bodyW * 0.46, -bodyH * 0.56);
+      ctx.rotate(leftWingAngle);
+      ctx.fillStyle = '#090b10';
+      ctx.strokeStyle = 'rgba(225, 232, 242, 0.75)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.ellipse(-6, 26 * Math.max(0.75, scale), 9 * Math.max(0.75, scale), 34 * Math.max(0.75, scale), 0.22, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // الجناح الأيمن
+      ctx.save();
+      ctx.translate(bodyW * 0.46, -bodyH * 0.56);
+      ctx.rotate(rightWingAngle);
+      ctx.fillStyle = '#090b10';
+      ctx.strokeStyle = 'rgba(225, 232, 242, 0.75)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.ellipse(6, 26 * Math.max(0.75, scale), 9 * Math.max(0.75, scale), 34 * Math.max(0.75, scale), -0.22, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // الجسم الرئيسي من الخلف (ظهر البطريق الأسود المحدد بإضاءة فضية ناعمة)
+      const backGrad = ctx.createLinearGradient(-bodyW * 0.5, 0, bodyW * 0.5, 0);
+      backGrad.addColorStop(0, '#cfd8e3');
+      backGrad.addColorStop(0.14, '#141820');
+      backGrad.addColorStop(0.5, '#07090d');
+      backGrad.addColorStop(0.86, '#141820');
+      backGrad.addColorStop(1, '#cfd8e3');
+
+      ctx.fillStyle = backGrad;
+      ctx.beginPath();
+      ctx.moveTo(-bodyW * 0.44, -bodyH * 0.76);
+      ctx.bezierCurveTo(-bodyW * 0.54, -bodyH * 0.4, -bodyW * 0.52, -bodyH * 0.06, -bodyW * 0.34, -2);
+      ctx.quadraticCurveTo(0, 4, bodyW * 0.34, -2);
+      ctx.bezierCurveTo(bodyW * 0.52, -bodyH * 0.06, bodyW * 0.54, -bodyH * 0.4, bodyW * 0.44, -bodyH * 0.76);
+      ctx.closePath();
+      ctx.fill();
+
+      // حدود مضيئة ناعمة حول ظهر البطريق
+      ctx.strokeStyle = 'rgba(235, 242, 250, 0.72)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // ذيل البطريق الصغير في أسفل الظهر
+      ctx.fillStyle = '#0d1017';
+      ctx.strokeStyle = 'rgba(220, 228, 240, 0.65)';
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(-10, -10);
+      ctx.lineTo(0, 2);
+      ctx.lineTo(10, -10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // نسيج الجسيمات الدقيقة على ظهر البطريق ليطابق أسلوب الصورة
+      penguinPalette.backParticles.forEach((pt) => {
+        const py = -bodyH * 0.06 - pt.t * (bodyH * 0.68);
+        const widthFactor = Math.sin(pt.t * Math.PI * 0.82 + 0.25);
+        const px = Math.sin(pt.angle) * (bodyW * 0.46) * widthFactor;
+        const pulse = 0.75 + 0.25 * Math.sin(time * 0.004 + pt.twinkle);
+        ctx.fillStyle = `rgba(${pt.brightness}, ${pt.brightness + 4}, ${Math.min(255, pt.brightness + 10)}, ${0.55 * pulse})`;
+        ctx.fillRect(px, py, pt.size, pt.size);
+      });
+
+      // --- التاج من الخلف بنفس تصميم الصورة (3 قمم وجواهر فضية) ---
+      const crownBaseY = -bodyH * 0.75;
+      const crownW = bodyW * 0.46;
+      const crownH = bodyH * 0.34;
+
+      const crownGrad = ctx.createLinearGradient(-crownW, crownBaseY, crownW, crownBaseY);
+      crownGrad.addColorStop(0, '#c8d0dc');
+      crownGrad.addColorStop(0.25, '#59606b');
+      crownGrad.addColorStop(0.5, '#3b4048');
+      crownGrad.addColorStop(0.75, '#68707d');
+      crownGrad.addColorStop(1, '#d5dde8');
+
+      ctx.fillStyle = crownGrad;
+      ctx.strokeStyle = 'rgba(245, 248, 255, 0.88)';
+      ctx.lineWidth = 1.5;
+
+      ctx.beginPath();
+      ctx.moveTo(-crownW, crownBaseY);
+      ctx.lineTo(-crownW * 0.85, crownBaseY - crownH * 0.72);
+      ctx.lineTo(-crownW * 0.42, crownBaseY - crownH * 0.36);
+      ctx.lineTo(0, crownBaseY - crownH);
+      ctx.lineTo(crownW * 0.42, crownBaseY - crownH * 0.36);
+      ctx.lineTo(crownW * 0.85, crownBaseY - crownH * 0.72);
+      ctx.lineTo(crownW, crownBaseY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // الجوهرة الخلفية للتاج
+      ctx.fillStyle = 'rgba(240, 245, 255, 0.85)';
+      ctx.beginPath();
+      ctx.moveTo(0, crownBaseY - crownH * 0.42);
+      ctx.lineTo(6, crownBaseY - crownH * 0.25);
+      ctx.lineTo(0, crownBaseY - crownH * 0.08);
+      ctx.lineTo(-6, crownBaseY - crownH * 0.25);
+      ctx.closePath();
+      ctx.fill();
+
+      // جسيمات متطايرة خفيفة حول البطريق أثناء سيره في الظلام
+      for (let k = 0; k < 18; k++) {
+        const drift = ((time * 0.025 + k * 37) % 60);
+        const sx = Math.sin(k * 1.7 + time * 0.001) * (bodyW * 0.65);
+        const sy = -bodyH * 0.2 - k * 7 - drift * 0.5;
+        const alpha = Math.max(0, 1 - drift / 60) * 0.65;
+        ctx.fillStyle = `rgba(235, 242, 252, ${alpha})`;
+        ctx.fillRect(sx, sy, 1.5, 1.5);
       }
 
       ctx.restore();
     }
 
-    function drawInfiniteHourglass(time) {
+    // رسم الساعة الرملية السوداء الفاخرة برمل أبيض (أكثر من 1,000,000 حبة، تسقط حبة واحدة كل دقيقة)
+    function drawSlowMillionGrainHourglass(time) {
       const cx = width * 0.5;
-      const cy = Math.max(85, height * 0.14);
-      const h = 44;
-      const w = 28;
+      const cy = Math.max(96, height * 0.14);
+      const h = 54;
+      const w = 34;
 
-      const cyclePos = time % hourglass.cycleDuration;
-      const flowPhaseDuration = hourglass.cycleDuration - hourglass.flipDuration;
+      // حساب التقدم البطيء جداً: 1,000,000 حبة × 60,000 مللي ثانية (دقيقة لكل حبة)
+      const totalFlowTime = hourglass.totalGrains * hourglass.msPerGrain;
+      const fullCycle = totalFlowTime + hourglass.flipDuration;
+      const cycleTime = time % fullCycle;
 
-      let fillRatio = 0;
+      // نبدأ بنسبة امتلاء واضحة للجمالية (مثلاً 82% في الأعلى و18% في الأسفل) وتنقص حبة كل دقيقة بدقة
+      const initialRatio = 0.18;
+      let progress = initialRatio;
       let rotation = 0;
       let isFlipping = false;
 
-      if (cyclePos < flowPhaseDuration) {
-        fillRatio = cyclePos / flowPhaseDuration;
-        rotation = 0;
+      if (cycleTime < totalFlowTime) {
+        const grainsDropped = cycleTime / hourglass.msPerGrain; // يزيد بمقدار 1 كل 60 ثانية
+        progress = Math.min(1, initialRatio + (grainsDropped / hourglass.totalGrains));
       } else {
         isFlipping = true;
-        const flipProgress = (cyclePos - flowPhaseDuration) / hourglass.flipDuration;
-        const ease = flipProgress < 0.5
-          ? 2 * flipProgress * flipProgress
-          : 1 - Math.pow(-2 * flipProgress + 2, 2) / 2;
+        const flipT = (cycleTime - totalFlowTime) / hourglass.flipDuration;
+        const ease = flipT < 0.5 ? 2 * flipT * flipT : 1 - Math.pow(-2 * flipT + 2, 2) / 2;
         rotation = ease * Math.PI;
-        fillRatio = 1;
+        progress = 1;
       }
+
+      // حركة الحبة الواحدة التي تتحرك وتسقط كل دقيقة (دورة 60 ثانية لكل حبة)
+      const minutePhase = (time % hourglass.msPerGrain) / hourglass.msPerGrain;
 
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(rotation);
 
-      const aura = ctx.createRadialGradient(0, 0, 4, 0, 0, 58);
-      aura.addColorStop(0, 'rgba(255, 255, 255, 0.14)');
-      aura.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = aura;
+      // هالة ضوء ناعمة تبرز الساعة الرملية السوداء في السماء المظلمة
+      const halo = ctx.createRadialGradient(0, 0, 5, 0, 0, 72);
+      halo.addColorStop(0, 'rgba(235, 242, 255, 0.16)');
+      halo.addColorStop(0.6, 'rgba(180, 195, 220, 0.05)');
+      halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = halo;
       ctx.beginPath();
-      ctx.arc(0, 0, 58, 0, Math.PI * 2);
+      ctx.arc(0, 0, 72, 0, Math.PI * 2);
       ctx.fill();
 
-      function hourglassPath() {
+      function glassShape() {
         ctx.beginPath();
         ctx.moveTo(-w, -h);
         ctx.lineTo(w, -h);
-        ctx.bezierCurveTo(w, -h * 0.35, 3.2, -5, 2.6, 0);
-        ctx.bezierCurveTo(3.2, 5, w, h * 0.35, w, h);
+        ctx.bezierCurveTo(w, -h * 0.34, 3.6, -6, 2.4, 0);
+        ctx.bezierCurveTo(3.6, 6, w, h * 0.34, w, h);
         ctx.lineTo(-w, h);
-        ctx.bezierCurveTo(-w, h * 0.35, -3.2, 5, -2.6, 0);
-        ctx.bezierCurveTo(-3.2, -5, -w, -h * 0.35, -w, -h);
+        ctx.bezierCurveTo(-w, h * 0.34, -3.6, 6, -2.4, 0);
+        ctx.bezierCurveTo(-3.6, -6, -w, -h * 0.34, -w, -h);
         ctx.closePath();
       }
 
-      hourglassPath();
-      ctx.fillStyle = '#050507';
+      // الزجاج الأسود العميق للساعة الرملية
+      glassShape();
+      const darkGlass = ctx.createLinearGradient(-w, 0, w, 0);
+      darkGlass.addColorStop(0, '#020204');
+      darkGlass.addColorStop(0.5, '#090b10');
+      darkGlass.addColorStop(1, '#020204');
+      ctx.fillStyle = darkGlass;
       ctx.fill();
 
+      // قص الداخل لرسم الرمل الأبيض الفاخر
       ctx.save();
-      hourglassPath();
+      glassShape();
       ctx.clip();
 
-      const topSandLevel = (1 - fillRatio);
-      const bottomSandLevel = fillRatio;
+      const sandPattern = sandPatternCanvas ? ctx.createPattern(sandPatternCanvas, 'repeat') : '#f5f8fc';
 
-      if (topSandLevel > 0.01) {
-        const topY = -h * topSandLevel;
-        ctx.fillStyle = '#f5f7fa';
+      const topLevel = 1 - progress;
+      const bottomLevel = progress;
+
+      // كتلة الرمل الأبيض العلوية (أكثر من مليون حبة بيضاء متراصة بوضوح)
+      if (topLevel > 0.002) {
+        const topSurfaceY = -h * topLevel;
+        ctx.fillStyle = sandPattern;
         ctx.beginPath();
-        ctx.moveTo(-w - 5, topY);
-        ctx.quadraticCurveTo(0, topY + 4 * (1 - topSandLevel), w + 5, topY);
-        ctx.lineTo(w + 5, 0);
-        ctx.lineTo(-w - 5, 0);
+        ctx.moveTo(-w - 4, topSurfaceY);
+        // انحناء قمعي خفيف في المنتصف حيث تتحرك الحبات ببطء
+        ctx.quadraticCurveTo(0, topSurfaceY + 5, w + 4, topSurfaceY);
+        ctx.lineTo(w + 4, 0);
+        ctx.lineTo(-w - 4, 0);
         ctx.closePath();
         ctx.fill();
-      }
 
-      if (bottomSandLevel > 0.01) {
-        const botY = h - (h * 0.92 * bottomSandLevel);
-        ctx.fillStyle = '#ffffff';
+        // إضاءة سطح الرمل العلوي لإبراز ملمس الحبيبات البيضاء
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.lineWidth = 1.2;
         ctx.beginPath();
-        ctx.moveTo(-w - 5, h + 5);
-        ctx.lineTo(-w - 5, botY + 4);
-        ctx.quadraticCurveTo(0, botY - 6 * (1 - bottomSandLevel * 0.4), w + 5, botY + 4);
-        ctx.lineTo(w + 5, h + 5);
-        ctx.closePath();
-        ctx.fill();
-      }
-
-      if (!isFlipping && fillRatio < 0.995) {
-        const streamBottom = h - (h * 0.9 * bottomSandLevel);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
-        ctx.lineWidth = 1.6;
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(0, streamBottom);
+        ctx.moveTo(-w, topSurfaceY);
+        ctx.quadraticCurveTo(0, topSurfaceY + 5, w, topSurfaceY);
         ctx.stroke();
-
-        ctx.fillStyle = '#ffffff';
-        hourglass.grains.forEach((g) => {
-          const p = ((time * 0.0022 + g.offset) % 1);
-          const gy = p * streamBottom;
-          const gx = g.xJitter * (p * 0.8);
-          ctx.fillRect(gx - 0.7, gy, 1.4, 1.4);
-        });
       }
+
+      // كومة الرمل الأبيض السفلية المخروطية
+      if (bottomLevel > 0.002) {
+        const pilePeakY = h - (h * 0.88 * bottomLevel);
+        const pileBaseY = h - (h * 0.55 * bottomLevel);
+        ctx.fillStyle = sandPattern;
+        ctx.beginPath();
+        ctx.moveTo(-w - 4, h + 4);
+        ctx.lineTo(-w - 4, pileBaseY);
+        ctx.quadraticCurveTo(0, pilePeakY - 6, w + 4, pileBaseY);
+        ctx.lineTo(w + 4, h + 4);
+        ctx.closePath();
+        ctx.fill();
+
+        // بريق قمة كومة الرمل السفلية
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.lineWidth = 1.1;
+        ctx.beginPath();
+        ctx.moveTo(-w, pileBaseY);
+        ctx.quadraticCurveTo(0, pilePeakY - 6, w, pileBaseY);
+        ctx.stroke();
+      }
+
+      // --- حركة حبة الرمل الواحدة كل دقيقة بوضوح وأناقة ---
+      if (!isFlipping && progress < 1) {
+        const landingY = h - (h * 0.88 * bottomLevel) - 2;
+        let grainX = 0;
+        let grainY = 0;
+        let grainAlpha = 1;
+
+        if (minutePhase < 0.82) {
+          // خلال 49 ثانية: الحبة تتحرك ببطء شديد عند عنق الزجاجة وتتهيأ للسقوط
+          const prep = minutePhase / 0.82;
+          grainX = Math.sin(prep * Math.PI * 3) * 0.6;
+          grainY = -2.5 + prep * 2.5;
+          grainAlpha = 0.7 + 0.3 * Math.sin(prep * Math.PI);
+        } else {
+          // خلال الثواني الأخيرة من الدقيقة: الحبة تنفصل وتسقط بوضوح إلى الكومة السفلية
+          const fall = (minutePhase - 0.82) / 0.18;
+          const easeFall = fall * fall;
+          grainX = 0;
+          grainY = easeFall * Math.max(4, landingY);
+          grainAlpha = 1;
+        }
+
+        // هالة مضيئة حول حبة الرمل المتحركة لكي تُرى بوضوح تام
+        const grainGlow = ctx.createRadialGradient(grainX, grainY, 0.5, grainX, grainY, 5.5);
+        grainGlow.addColorStop(0, `rgba(255, 255, 255, ${grainAlpha})`);
+        grainGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = grainGlow;
+        ctx.beginPath();
+        ctx.arc(grainX, grainY, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // نواة حبة الرمل البيضاء الواضحة
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(grainX, grainY, 1.75, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // لمعان زجاجي خفيف على حافة الساعة الرملية السوداء
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(-w + 5, -h + 6);
+      ctx.bezierCurveTo(-w + 5, -h * 0.32, -5, -6, -4, 0);
+      ctx.bezierCurveTo(-5, 6, -w + 5, h * 0.32, -w + 5, h - 6);
+      ctx.stroke();
 
       ctx.restore();
 
-      hourglassPath();
-      ctx.strokeStyle = 'rgba(220, 228, 240, 0.55)';
-      ctx.lineWidth = 1.6;
+      // إطار الساعة الرملية الأسود بحواف فضية أنيقة
+      glassShape();
+      ctx.strokeStyle = 'rgba(225, 232, 245, 0.68)';
+      ctx.lineWidth = 1.7;
       ctx.stroke();
 
-      ctx.fillStyle = '#08090c';
-      ctx.strokeStyle = 'rgba(210, 220, 235, 0.65)';
+      // القاعدتان المزخرفتان بالأسود مع حواف فضية رفيعة
+      ctx.fillStyle = '#050608';
+      ctx.strokeStyle = 'rgba(220, 228, 242, 0.75)';
       ctx.lineWidth = 1.4;
 
-      drawRoundedRect(-w - 5, -h - 6, (w + 5) * 2, 6, 2);
+      // القاعدة العلوية
+      drawRoundedRect(-w - 6, -h - 7, (w + 6) * 2, 7, 3);
       ctx.fill();
       ctx.stroke();
 
-      drawRoundedRect(-w - 5, h, (w + 5) * 2, 6, 2);
+      // القاعدة السفلية
+      drawRoundedRect(-w - 6, h, (w + 6) * 2, 7, 3);
       ctx.fill();
+      ctx.stroke();
+
+      // أعمدة جانبية رفيعة سوداء بتفاصيل زينة
+      ctx.strokeStyle = 'rgba(180, 192, 212, 0.35)';
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.moveTo(-w - 2, -h);
+      ctx.lineTo(-w - 2, h);
+      ctx.moveTo(w + 2, -h);
+      ctx.lineTo(w + 2, h);
       ctx.stroke();
 
       ctx.restore();
     }
 
-    function drawDust() {
-      dustParticles.forEach((p) => {
-        p.x += p.speedX;
-        p.y += p.speedY;
-
+    function drawDesertDust() {
+      desertDust.forEach((p) => {
+        p.x += p.vx;
+        p.y += p.vy;
         if (p.x < 0) p.x = width;
-        if (p.y < 0) p.y = height;
+        if (p.x > width) p.x = 0;
         if (p.y > height) p.y = 0;
 
-        ctx.fillStyle = `rgba(210, 225, 245, ${p.alpha})`;
+        ctx.fillStyle = `rgba(215, 228, 245, ${p.alpha})`;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         ctx.fill();
@@ -415,10 +671,10 @@
     function animate(time) {
       const t = typeof time === 'number' ? time : performance.now();
       try {
-        drawDarkRoad(t);
-        drawDust();
-        drawPenguin(t);
-        drawInfiniteHourglass(t);
+        drawInfiniteDesertRoad(t);
+        drawDesertDust();
+        drawPenguinFromBack(t);
+        drawSlowMillionGrainHourglass(t);
       } catch (e) {
       }
       requestAnimationFrame(animate);
@@ -428,4 +684,3 @@
   </script>
 </body>
 </html>
-
