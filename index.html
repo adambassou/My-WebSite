@@ -223,20 +223,6 @@
         ctx.stroke();
       }
 
-      const tailGrad = ctx.createLinearGradient(0, -12 * scale, 0, 4 * scale);
-      tailGrad.addColorStop(0, '#040507');
-      tailGrad.addColorStop(1, '#000000');
-      ctx.fillStyle = tailGrad;
-      ctx.strokeStyle = 'rgba(190, 200, 220, 0.28)';
-      ctx.lineWidth = 0.9;
-      ctx.beginPath();
-      ctx.moveTo(-10 * scale, -10 * scale);
-      ctx.quadraticCurveTo(0, -6 * scale, 10 * scale, -10 * scale);
-      ctx.lineTo(0, 4 * scale);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
       const crownBaseY = -bodyH * 0.77;
       const crownW = bodyW * 0.40;
       const crownH = bodyH * 0.31;
@@ -274,25 +260,25 @@
       ctx.closePath();
       ctx.fill();
 
-      function drawPurpleGem(gx, gy, gw, gh) {
+      function drawRedGem(gx, gy, gw, gh) {
         ctx.save();
         ctx.translate(gx, gy);
 
         const gemGlow = ctx.createRadialGradient(0, 0, 1, 0, 0, gh * 1.4);
-        gemGlow.addColorStop(0, 'rgba(186, 85, 255, 0.55)');
-        gemGlow.addColorStop(1, 'rgba(120, 30, 200, 0)');
+        gemGlow.addColorStop(0, 'rgba(255, 45, 75, 0.55)');
+        gemGlow.addColorStop(1, 'rgba(150, 0, 20, 0)');
         ctx.fillStyle = gemGlow;
         ctx.beginPath();
         ctx.arc(0, 0, gh * 1.4, 0, Math.PI * 2);
         ctx.fill();
 
         const gemGrad = ctx.createLinearGradient(-gw, -gh, gw, gh);
-        gemGrad.addColorStop(0, '#e0aaff');
-        gemGrad.addColorStop(0.45, '#9d4edd');
-        gemGrad.addColorStop(1, '#3c096c');
+        gemGrad.addColorStop(0, '#ff758f');
+        gemGrad.addColorStop(0.45, '#e11d48');
+        gemGrad.addColorStop(1, '#4c0519');
 
         ctx.fillStyle = gemGrad;
-        ctx.strokeStyle = '#f3d5ff';
+        ctx.strokeStyle = '#ffe4e6';
         ctx.lineWidth = 0.9;
 
         ctx.beginPath();
@@ -312,9 +298,9 @@
         ctx.restore();
       }
 
-      drawPurpleGem(0, crownBaseY - crownH * 0.28, 6 * scale, 9 * scale);
-      drawPurpleGem(-crownW * 0.56, crownBaseY - crownH * 0.22, 4.2 * scale, 6 * scale);
-      drawPurpleGem(crownW * 0.56, crownBaseY - crownH * 0.22, 4.2 * scale, 6 * scale);
+      drawRedGem(0, crownBaseY - crownH * 0.28, 6 * scale, 9 * scale);
+      drawRedGem(-crownW * 0.56, crownBaseY - crownH * 0.22, 4.2 * scale, 6 * scale);
+      drawRedGem(crownW * 0.56, crownBaseY - crownH * 0.22, 4.2 * scale, 6 * scale);
 
       ctx.restore();
     }
