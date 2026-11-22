@@ -98,25 +98,29 @@
     }
 
     // --- Web Audio Horror Sound & Vibration Engine ---
+    const HORROR_DURATION_MS = 60000; // 1 minute
+    const HORROR_DURATION_SEC = 60;   // 1 minute
+
     let audioCtx = null;
     let audioUnlocked = false;
     let pendingHorrorSound = false;
     let lastTriggeredMinuteKey = '';
     let horrorFlashUntil = 0;
+    let activeSoundStopTimer = null;
 
-    // Trigger ghost 3 seconds after entering the page
+    // Trigger ghost 5 seconds after entering the page
     const pageEnterTime = performance.now();
     let entryGhostTriggered = false;
 
     function triggerHorrorVibration() {
       try {
         if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-          navigator.vibrate([200, 60, 250, 60, 350, 80, 300]);
+          navigator.vibrate([220, 80, 260, 80, 350, 90, 300, 90, 400]);
         }
       } catch (_) {}
     }
 
-    function makeDistortionCurve(amount = 120) {
+    function makeDistortionCurve(amount = 140) {
       const nSamples = 44100;
       const curve = new Float32Array(nSamples);
       const deg = Math.PI / 180;
@@ -127,15 +131,23 @@
       return curve;
     }
 
+    function stopCurrentHorrorSound() {
+      if (activeSoundStopTimer) {
+        clearTimeout(activeSoundStopTimer);
+        activeSoundStopTimer = null;
+      }
+    }
+
+    // Plays a terrifying 1-minute sequence of shrieks, sub-bass booms, and static
     function playMaxHorrorSound() {
       if (!audioCtx || audioCtx.state !== 'running') return;
+      stopCurrentHorrorSound();
 
       const now = audioCtx.currentTime;
-      const duration = 2.6;
+      const duration = HORROR_DURATION_SEC;
 
-      // Boosted chain with waveshaper distortion + compressor near max output
       const shaper = audioCtx.createWaveShaper();
-      shaper.curve = makeDistortionCurve(140);
+      shaper.curve = makeDistortionCurve(150);
       shaper.oversample = '4x';
 
       const compressor = audioCtx.createDynamicsCompressor();
@@ -150,7 +162,7 @@
 
       const masterGain = audioCtx.createGain();
       masterGain.gain.setValueAtTime(1.0, now);
-      masterGain.gain.setValueAtTime(1.0, now + duration - 0.35);
+      masterGain.gain.setValueAtTime(1.0, now + duration - 0.4);
       masterGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
       boostGain.connect(shaper);
@@ -158,58 +170,75 @@
       compressor.connect(masterGain);
       masterGain.connect(audioCtx.destination);
 
-      // 1. Piercing horror shriek / jumpscare oscillators with LFO pitch wobble
+      // Continuous horror oscillators modulated every 2 seconds across the full 60s
       const lfo = audioCtx.createOscillator();
       lfo.type = 'sine';
-      lfo.frequency.setValueAtTime(24, now);
+      lfo.frequency.setValueAtTime(22, now);
 
       const lfoGain = audioCtx.createGain();
-      lfoGain.gain.setValueAtTime(140, now);
+      lfoGain.gain.setValueAtTime(160, now);
       lfo.connect(lfoGain);
 
       const shriekA = audioCtx.createOscillator();
       shriekA.type = 'sawtooth';
-      shriekA.frequency.setValueAtTime(780, now);
-      shriekA.frequency.exponentialRampToValueAtTime(1950, now + 0.25);
-      shriekA.frequency.exponentialRampToValueAtTime(420, now + 1.2);
-      shriekA.frequency.exponentialRampToValueAtTime(1650, now + duration);
 
       const shriekB = audioCtx.createOscillator();
       shriekB.type = 'square';
-      shriekB.frequency.setValueAtTime(1120, now);
-      shriekB.frequency.exponentialRampToValueAtTime(2420, now + 0.3);
-      shriekB.frequency.exponentialRampToValueAtTime(310, now + duration);
+
+      const shriekGain = audioCtx.createGain();
+
+      // Sub-bass horror rumble
+      const subOsc = audioCtx.createOscillator();
+      subOsc.type = 'sawtooth';
+
+      const subFilter = audioCtx.createBiquadFilter();
+      subFilter.type = 'lowpass';
+      subFilter.frequency.setValueAtTime(210, now);
+
+      const subGain = audioCtx.createGain();
+
+      // Modulate pitches and bursts every 2s for 60s (30 bursts)
+      for (let step = 0; step < 30; step++) {
+        const tStart = now + step * 2.0;
+        const tMid = tStart + 0.65;
+        const tEnd = tStart + 1.95;
+
+        const highA = step % 2 === 0 ? 1980 : 2350;
+        const lowA = step % 2 === 0 ? 440 : 320;
+        const highB = step % 2 === 0 ? 2480 : 1820;
+        const lowB = step % 2 === 0 ? 290 : 510;
+
+        shriekA.frequency.setValueAtTime(680, tStart);
+        shriekA.frequency.exponentialRampToValueAtTime(highA, tMid);
+        shriekA.frequency.exponentialRampToValueAtTime(lowA, tEnd);
+
+        shriekB.frequency.setValueAtTime(1050, tStart);
+        shriekB.frequency.exponentialRampToValueAtTime(highB, tMid);
+        shriekB.frequency.exponentialRampToValueAtTime(lowB, tEnd);
+
+        shriekGain.gain.setValueAtTime(0.95, tStart);
+        shriekGain.gain.setValueAtTime(0.88, tStart + 1.4);
+        shriekGain.gain.exponentialRampToValueAtTime(0.18, tEnd);
+
+        subOsc.frequency.setValueAtTime(135, tStart);
+        subOsc.frequency.exponentialRampToValueAtTime(34, tStart + 1.2);
+
+        subGain.gain.setValueAtTime(1.0, tStart);
+        subGain.gain.exponentialRampToValueAtTime(0.15, tEnd);
+      }
 
       lfoGain.connect(shriekA.frequency);
       lfoGain.connect(shriekB.frequency);
-
-      const shriekGain = audioCtx.createGain();
-      shriekGain.gain.setValueAtTime(0.95, now);
-      shriekGain.gain.exponentialRampToValueAtTime(0.02, now + duration);
 
       shriekA.connect(shriekGain);
       shriekB.connect(shriekGain);
       shriekGain.connect(boostGain);
 
-      // 2. Heavy sub-bass impact boom
-      const subOsc = audioCtx.createOscillator();
-      subOsc.type = 'sawtooth';
-      subOsc.frequency.setValueAtTime(140, now);
-      subOsc.frequency.exponentialRampToValueAtTime(32, now + 0.9);
-
-      const subFilter = audioCtx.createBiquadFilter();
-      subFilter.type = 'lowpass';
-      subFilter.frequency.setValueAtTime(220, now);
-
-      const subGain = audioCtx.createGain();
-      subGain.gain.setValueAtTime(1.0, now);
-      subGain.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
-
       subOsc.connect(subFilter);
       subFilter.connect(subGain);
       subGain.connect(boostGain);
 
-      // 3. Harsh noise burst for terrifying static & scream texture
+      // Filtered white noise across the full 60s
       const bufferSize = Math.floor(audioCtx.sampleRate * duration);
       const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
       const output = noiseBuffer.getChannelData(0);
@@ -222,13 +251,13 @@
 
       const bandpass = audioCtx.createBiquadFilter();
       bandpass.type = 'bandpass';
-      bandpass.frequency.setValueAtTime(2100, now);
-      bandpass.frequency.exponentialRampToValueAtTime(950, now + duration);
-      bandpass.Q.setValueAtTime(3.2, now);
+      bandpass.frequency.setValueAtTime(1950, now);
+      bandpass.Q.setValueAtTime(3.0, now);
 
       const noiseGain = audioCtx.createGain();
-      noiseGain.gain.setValueAtTime(1.0, now);
-      noiseGain.gain.exponentialRampToValueAtTime(0.02, now + duration);
+      noiseGain.gain.setValueAtTime(0.9, now);
+      noiseGain.gain.setValueAtTime(0.85, now + duration - 0.5);
+      noiseGain.gain.exponentialRampToValueAtTime(0.01, now + duration);
 
       whiteNoise.connect(bandpass);
       bandpass.connect(noiseGain);
@@ -245,6 +274,10 @@
       shriekB.stop(now + duration);
       subOsc.stop(now + duration);
       whiteNoise.stop(now + duration);
+
+      activeSoundStopTimer = setTimeout(() => {
+        activeSoundStopTimer = null;
+      }, HORROR_DURATION_MS);
     }
 
     function unlockAudio() {
@@ -285,7 +318,7 @@
     });
 
     function triggerHorrorEvent(t) {
-      horrorFlashUntil = Math.max(horrorFlashUntil, t + 2600);
+      horrorFlashUntil = Math.max(horrorFlashUntil, t + HORROR_DURATION_MS);
       triggerHorrorVibration();
       if (audioUnlocked && audioCtx && audioCtx.state === 'running') {
         playMaxHorrorSound();
@@ -734,11 +767,13 @@
       const seconds = now.getSeconds();
       const minuteKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}-${now.getMinutes()}`;
 
-      if (!entryGhostTriggered && t - pageEnterTime >= 3000) {
+      // Ghost appears 5 seconds after entering the site
+      if (!entryGhostTriggered && t - pageEnterTime >= 5000) {
         entryGhostTriggered = true;
         triggerHorrorEvent(t);
       }
 
+      // Ghost also appears whenever seconds reach 00
       if (seconds === 0 && lastTriggeredMinuteKey !== minuteKey) {
         lastTriggeredMinuteKey = minuteKey;
         triggerHorrorEvent(t);
@@ -750,7 +785,8 @@
 
       const remainingMs = horrorFlashUntil - t;
       if (remainingMs > 0) {
-        const intensity = Math.min(1, remainingMs / 600);
+        // Fade out gently during the final 1.2 seconds of the 1-minute window
+        const intensity = Math.min(1, remainingMs / 1200);
         drawBloodFrame(intensity, t);
         drawUglyHorrorGhost(intensity, t);
       }
