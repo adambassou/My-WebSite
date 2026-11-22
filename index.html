@@ -44,514 +44,351 @@
       return String(num).padStart(2, '0');
     }
 
-    // طبقات الظلام المتحرك (ضباب وسحب ظلامية تتحرك باستمرار حول الشخصية)
-    const darkMistLayers = Array.from({ length: 42 }, () => ({
+    // خلفية سوداء صافية بالكامل بدون طريق أو أضواء، مع ذرات ظلامية خفيفة تتحرك لتعطي إحساس المشي في الفراغ
+    const darkMotionSpecks = Array.from({ length: 45 }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
-      r: Math.random() * 140 + 60,
-      vx: -(Math.random() * 0.65 + 0.18),
-      vy: (Math.random() - 0.5) * 0.25,
-      alpha: Math.random() * 0.28 + 0.08
+      vy: Math.random() * 0.8 + 0.35,
+      size: Math.random() * 1.3 + 0.4,
+      alpha: Math.random() * 0.08 + 0.02
     }));
 
-    const darkMotes = Array.from({ length: 95 }, () => ({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      r: Math.random() * 1.6 + 0.3,
-      vx: -(Math.random() * 1.1 + 0.35),
-      vy: (Math.random() - 0.5) * 0.3,
-      alpha: Math.random() * 0.45 + 0.08
-    }));
-
-    // بناء شبكة جسيمات ثلاثية الأبعاد مطابقة لشكل البطريق في الصورة المرفقة (نفس الجسم، العيون السوداء، المنقار المدبب، الجناح، والتاج)
-    const bodyDots = [];
-    const ROWS = 92;
-    const COLS = 64;
-    for (let r = 0; r < ROWS; r++) {
-      const v = r / (ROWS - 1); // 0 في الأعلى، 1 في الأسفل
-      for (let c = 0; c < COLS; c++) {
-        const u = (c / COLS) * Math.PI * 2; // زاوية حول الجسم الأسطواني
-        bodyDots.push({ u, v, jitter: (Math.random() - 0.5) * 0.012 });
-      }
-    }
-
-    // جسيمات تتطاير من خلف البطريق مثل الصورة تماماً
-    const trailingParticles = Array.from({ length: 160 }, () => ({
-      xOff: Math.random(),
-      yOff: Math.random(),
-      size: Math.random() * 1.8 + 0.5,
-      speed: Math.random() * 0.8 + 0.3,
-      phase: Math.random() * Math.PI * 2
-    }));
-
-    function drawMovingDarkness(time) {
-      // خلفية سوداء عميقة
+    function drawPureDarkness(time) {
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, width, height);
 
-      const cx = width * 0.5;
-      const cy = height * 0.58;
-
-      // هالة ضوء خافتة جداً تنبض ببطء في الظلام حول البطريق
-      const pulse = 1 + Math.sin(time * 0.0015) * 0.06;
-      const ambient = ctx.createRadialGradient(
-        cx, cy, 10,
-        cx, cy, Math.min(width, height) * 0.48 * pulse
-      );
-      ambient.addColorStop(0, 'rgba(220, 228, 242, 0.12)');
-      ambient.addColorStop(0.5, 'rgba(130, 140, 160, 0.04)');
-      ambient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = ambient;
-      ctx.fillRect(0, 0, width, height);
-
-      // سحب الظلام المتحركة
-      darkMistLayers.forEach((m) => {
-        m.x += m.vx;
-        m.y += m.vy;
-        if (m.x < -m.r) m.x = width + m.r;
-        if (m.y < -m.r) m.y = height + m.r;
-        if (m.y > height + m.r) m.y = -m.r;
-
-        const g = ctx.createRadialGradient(m.x, m.y, 5, m.x, m.y, m.r);
-        g.addColorStop(0, `rgba(18, 20, 26, ${m.alpha})`);
-        g.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      // ذرات غبار خافتة تتحرك في الظلام لإعطاء إحساس بالمشي المستمر
-      darkMotes.forEach((p) => {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < 0) p.x = width;
-        if (p.y < 0) p.y = height;
-        if (p.y > height) p.y = 0;
-
-        ctx.fillStyle = `rgba(215, 222, 235, ${p.alpha})`;
-        ctx.fillRect(p.x, p.y, p.r, p.r);
+      // حركة خفيفة جداً في الظلام توحي بتقدم البطريق للأمام
+      darkMotionSpecks.forEach((s) => {
+        s.y += s.vy;
+        if (s.y > height) {
+          s.y = 0;
+          s.x = Math.random() * width;
+        }
+        ctx.fillStyle = `rgba(180, 190, 210, ${s.alpha})`;
+        ctx.fillRect(s.x, s.y, s.size, s.size * 2.2);
       });
     }
 
-    // رسم التاج الذهبي الواقعي مع أحجار كريمة حمراء (ياقوت) فوق رأس البطريق
-    function drawRealisticGoldCrown(cx, topY, rx, scale) {
-      const crownH = 92 * scale;
-      const baseW = rx * 1.04;
+    // رسم البطريق من الخلف في نفس مكانه تماماً بتفاصيل واقعية أكثر (ريش ناعم متدرج، ظلال طبيعية، وتاج ذهبي بأحجار بنفسجية)
+    function drawRealisticBlackPenguinFromBack(time) {
+      const centerX = width * 0.5;
+      const groundY = height * 0.74;
 
-      ctx.save();
-      ctx.translate(cx, topY + 6 * scale);
-      // إمالة طفيفة مطابقة لوضعية الرأس في الصورة
-      ctx.rotate(0.035);
+      const stepPhase = time * 0.0042;
+      const waddleAngle = Math.sin(stepPhase) * 0.055;
+      const bodyBounce = Math.abs(Math.sin(stepPhase)) * 5.5;
 
-      // توهج ذهبي ناعم حول التاج
-      const crownGlow = ctx.createRadialGradient(0, -crownH * 0.45, 5, 0, -crownH * 0.45, baseW * 1.6);
-      crownGlow.addColorStop(0, 'rgba(255, 200, 60, 0.22)');
-      crownGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = crownGlow;
+      const leftStep = Math.sin(stepPhase);
+      const rightStep = -Math.sin(stepPhase);
+
+      const scale = Math.max(0.75, Math.min(width, height) / 760);
+      const bodyW = 94 * scale;
+      const bodyH = 166 * scale;
+
+      // ظل أرضي ناعم تحت البطريق
+      const groundShadow = ctx.createRadialGradient(
+        centerX, groundY + 4, 2,
+        centerX, groundY + 4, bodyW * 0.85
+      );
+      groundShadow.addColorStop(0, 'rgba(25, 28, 36, 0.35)');
+      groundShadow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = groundShadow;
       ctx.beginPath();
-      ctx.arc(0, -crownH * 0.45, baseW * 1.6, 0, Math.PI * 2);
+      ctx.ellipse(centerX, groundY + 4, bodyW * 0.8, 14 * scale, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // الجزء الخلفي الداخلي للتاج لإعطاء عمق ثلاثي الأبعاد واقعي
-      ctx.fillStyle = '#4a3208';
-      ctx.beginPath();
-      ctx.moveTo(-baseW * 0.92, -4 * scale);
-      ctx.lineTo(-baseW * 0.35, -crownH * 0.58);
-      ctx.lineTo(baseW * 0.45, -crownH * 0.55);
-      ctx.lineTo(baseW * 0.94, -4 * scale);
-      ctx.closePath();
-      ctx.fill();
+      // --- القدمان الصغيرتان الواقعيتان ---
+      function drawSmallFoot(offsetX, stepVal) {
+        const lift = Math.max(0, stepVal) * 6.5;
+        const forwardShift = stepVal * 4.5;
+        const footY = groundY - lift - forwardShift * 0.35;
+        const footScale = 1 - forwardShift * 0.014;
 
-      // الجسم المعدني الذهبي للتاج (3 قمم بارزة بنفس تصميم الصورة)
-      const metalGrad = ctx.createLinearGradient(-baseW, 0, baseW, 0);
-      metalGrad.addColorStop(0, '#7a520c');
-      metalGrad.addColorStop(0.18, '#f7cf52');
-      metalGrad.addColorStop(0.36, '#b88318');
-      metalGrad.addColorStop(0.54, '#ffe885');
-      metalGrad.addColorStop(0.76, '#c9931e');
-      metalGrad.addColorStop(0.9, '#ffdf6b');
-      metalGrad.addColorStop(1, '#6e4708');
-
-      ctx.fillStyle = metalGrad;
-      ctx.beginPath();
-      ctx.moveTo(-baseW, 0);
-      ctx.lineTo(-baseW * 0.88, -crownH * 0.72); // القمة اليسرى
-      ctx.lineTo(-baseW * 0.44, -crownH * 0.38);
-      ctx.lineTo(-baseW * 0.04, -crownH);        // القمة الوسطى العالية
-      ctx.lineTo(baseW * 0.42, -crownH * 0.36);
-      ctx.lineTo(baseW * 0.82, -crownH * 0.70);  // القمة اليمنى
-      ctx.lineTo(baseW, 0);
-      ctx.quadraticCurveTo(0, 8 * scale, -baseW, 0);
-      ctx.closePath();
-      ctx.fill();
-
-      // حواف معدنية لامعة للتاج الذهبي
-      ctx.strokeStyle = '#fff3b0';
-      ctx.lineWidth = 1.5 * scale;
-      ctx.stroke();
-
-      // شريط قاعدة التاج الذهبي المنقوش
-      const bandGrad = ctx.createLinearGradient(-baseW, 0, baseW, 0);
-      bandGrad.addColorStop(0, '#694407');
-      bandGrad.addColorStop(0.3, '#ffd966');
-      bandGrad.addColorStop(0.55, '#fff0a8');
-      bandGrad.addColorStop(0.8, '#c78f18');
-      bandGrad.addColorStop(1, '#5c3a05');
-
-      ctx.fillStyle = bandGrad;
-      ctx.beginPath();
-      ctx.moveTo(-baseW, -11 * scale);
-      ctx.quadraticCurveTo(0, -4 * scale, baseW, -11 * scale);
-      ctx.lineTo(baseW, 0);
-      ctx.quadraticCurveTo(0, 8 * scale, -baseW, 0);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 245, 190, 0.75)';
-      ctx.lineWidth = 1 * scale;
-      ctx.stroke();
-
-      // دالة رسم حجر ياقوت أحمر واقعي متعدد الأوجه مع إطار ذهبي
-      function drawRealisticRuby(gx, gy, gw, gh, tilt) {
         ctx.save();
-        ctx.translate(gx, gy);
-        ctx.rotate(tilt);
+        ctx.translate(centerX + offsetX, footY);
+        ctx.scale(footScale, footScale);
 
-        // توهج أحمر خفيف حول الحجر
-        const rubyGlow = ctx.createRadialGradient(0, 0, 1, 0, 0, gh * 1.5);
-        rubyGlow.addColorStop(0, 'rgba(255, 30, 60, 0.55)');
-        rubyGlow.addColorStop(1, 'rgba(150, 0, 20, 0)');
-        ctx.fillStyle = rubyGlow;
+        const footGrad = ctx.createLinearGradient(0, -10 * scale, 0, 4 * scale);
+        footGrad.addColorStop(0, '#2a2d36');
+        footGrad.addColorStop(0.5, '#14161c');
+        footGrad.addColorStop(1, '#08090c');
+
+        ctx.fillStyle = footGrad;
+        ctx.strokeStyle = 'rgba(190, 200, 218, 0.32)';
+        ctx.lineWidth = 0.9;
+
         ctx.beginPath();
-        ctx.arc(0, 0, gh * 1.5, 0, Math.PI * 2);
+        ctx.moveTo(-10 * scale, 2);
+        ctx.quadraticCurveTo(-12.5 * scale, -7 * scale, -5.5 * scale, -9.5 * scale);
+        ctx.quadraticCurveTo(0, -11 * scale, 5.5 * scale, -9.5 * scale);
+        ctx.quadraticCurveTo(12.5 * scale, -7 * scale, 10 * scale, 2);
+        ctx.quadraticCurveTo(0, 4.5 * scale, -10 * scale, 2);
+        ctx.closePath();
         ctx.fill();
+        ctx.stroke();
 
-        // الإطار الذهبي المحيط بالحجر (Bezel)
-        ctx.fillStyle = '#ffd54f';
-        ctx.strokeStyle = '#5c3a04';
+        // تقسيم أصابع القدم الواقعية بظل خفيف
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.65)';
         ctx.lineWidth = 1 * scale;
         ctx.beginPath();
-        ctx.moveTo(0, -gh * 1.15);
-        ctx.lineTo(gw * 1.18, -gh * 0.45);
-        ctx.lineTo(gw * 1.18, gh * 0.45);
-        ctx.lineTo(0, gh * 1.15);
-        ctx.lineTo(-gw * 1.18, gh * 0.45);
-        ctx.lineTo(-gw * 1.18, -gh * 0.45);
-        ctx.closePath();
-        ctx.fill();
+        ctx.moveTo(-3.5 * scale, -8.5 * scale);
+        ctx.lineTo(-3 * scale, -2 * scale);
+        ctx.moveTo(3.5 * scale, -8.5 * scale);
+        ctx.lineTo(3 * scale, -2 * scale);
         ctx.stroke();
 
-        // جسم الياقوت الأحمر السداسي (نفس شكل جوهرة الصورة لكن بلون ياقوتي أحمر واقعي)
-        const rubyGrad = ctx.createLinearGradient(-gw, -gh, gw, gh);
-        rubyGrad.addColorStop(0, '#ff6b81');
-        rubyGrad.addColorStop(0.35, '#d90429');
-        rubyGrad.addColorStop(0.75, '#8d0801');
-        rubyGrad.addColorStop(1, '#3d0000');
+        ctx.restore();
+      }
 
-        ctx.fillStyle = rubyGrad;
+      drawSmallFoot(-bodyW * 0.24, leftStep);
+      drawSmallFoot(bodyW * 0.24, rightStep);
+
+      // --- جسم البطريق الواقعي من الخلف ---
+      ctx.save();
+      ctx.translate(centerX, groundY - bodyBounce);
+      ctx.rotate(waddleAngle);
+
+      const leftWingAngle = -0.16 + Math.sin(stepPhase) * 0.07;
+      const rightWingAngle = 0.16 + Math.sin(stepPhase) * 0.07;
+
+      // الجناح الأيسر بتجسيم ثلاثي الأبعاد
+      ctx.save();
+      ctx.translate(-bodyW * 0.45, -bodyH * 0.56);
+      ctx.rotate(leftWingAngle);
+      const lWingGrad = ctx.createLinearGradient(-14 * scale, 0, 6 * scale, 0);
+      lWingGrad.addColorStop(0, '#2c313d');
+      lWingGrad.addColorStop(0.4, '#0c0e13');
+      lWingGrad.addColorStop(1, '#030304');
+      ctx.fillStyle = lWingGrad;
+      ctx.strokeStyle = 'rgba(185, 195, 215, 0.28)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(-6 * scale, 26 * scale, 8.5 * scale, 34 * scale, 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // الجناح الأيمن بتجسيم ثلاثي الأبعاد
+      ctx.save();
+      ctx.translate(bodyW * 0.45, -bodyH * 0.56);
+      ctx.rotate(rightWingAngle);
+      const rWingGrad = ctx.createLinearGradient(-6 * scale, 0, 14 * scale, 0);
+      rWingGrad.addColorStop(0, '#030304');
+      rWingGrad.addColorStop(0.6, '#0c0e13');
+      rWingGrad.addColorStop(1, '#2c313d');
+      ctx.fillStyle = rWingGrad;
+      ctx.strokeStyle = 'rgba(185, 195, 215, 0.28)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(6 * scale, 26 * scale, 8.5 * scale, 34 * scale, -0.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // تجسيم الظهر الأسود الواقعي مع انحناء الرأس والرقبة والكتفين
+      const bodyGrad = ctx.createRadialGradient(
+        0, -bodyH * 0.45, bodyW * 0.08,
+        0, -bodyH * 0.42, bodyW * 0.62
+      );
+      bodyGrad.addColorStop(0, '#14171f');
+      bodyGrad.addColorStop(0.55, '#090a0e');
+      bodyGrad.addColorStop(0.88, '#1a1e28');
+      bodyGrad.addColorStop(1, '#2e3442');
+
+      ctx.fillStyle = bodyGrad;
+      ctx.beginPath();
+      // قمة الرأس المستديرة الواقعية
+      ctx.moveTo(-bodyW * 0.36, -bodyH * 0.78);
+      ctx.quadraticCurveTo(0, -bodyH * 0.86, bodyW * 0.36, -bodyH * 0.78);
+      // انحناء الرقبة والكتف الأيمن
+      ctx.bezierCurveTo(bodyW * 0.44, -bodyH * 0.68, bodyW * 0.54, -bodyH * 0.42, bodyW * 0.51, -bodyH * 0.12);
+      ctx.bezierCurveTo(bodyW * 0.49, -bodyH * 0.02, bodyW * 0.38, 2, bodyW * 0.28, 0);
+      // أسفل الظهر
+      ctx.quadraticCurveTo(0, 5 * scale, -bodyW * 0.28, 0);
+      // انحناء الكتف والرقبة الأيسر
+      ctx.bezierCurveTo(-bodyW * 0.38, 2, -bodyW * 0.49, -bodyH * 0.02, -bodyW * 0.51, -bodyH * 0.12);
+      ctx.bezierCurveTo(-bodyW * 0.54, -bodyH * 0.42, -bodyW * 0.44, -bodyH * 0.68, -bodyW * 0.36, -bodyH * 0.78);
+      ctx.closePath();
+      ctx.fill();
+
+      // خط حافة ناعم يبرز حدود البطريق في الظلام
+      ctx.strokeStyle = 'rgba(205, 215, 235, 0.34)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      // خط عمودي خفيف في منتصف الظهر يعطي عمقاً طبيعياً للعضلات والريش
+      const spineShade = ctx.createLinearGradient(0, -bodyH * 0.72, 0, -10 * scale);
+      spineShade.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      spineShade.addColorStop(0.5, 'rgba(0, 0, 0, 0.55)');
+      spineShade.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.strokeStyle = spineShade;
+      ctx.lineWidth = 5 * scale;
+      ctx.beginPath();
+      ctx.moveTo(0, -bodyH * 0.70);
+      ctx.lineTo(0, -12 * scale);
+      ctx.stroke();
+
+      // لمسات ريش ناعمة ودقيقة جداً غير مرئية كأوساخ بل كملمس طبيعي للظهر
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)';
+      ctx.lineWidth = 0.8;
+      for (let row = 0; row < 7; row++) {
+        const fy = -bodyH * (0.22 + row * 0.075);
+        const span = bodyW * (0.26 - Math.abs(row - 3) * 0.02);
+        ctx.beginPath();
+        ctx.moveTo(-span, fy);
+        ctx.quadraticCurveTo(0, fy + 4 * scale, span, fy);
+        ctx.stroke();
+      }
+
+      // ذيل البطريق الصغير المجسم
+      const tailGrad = ctx.createLinearGradient(0, -12 * scale, 0, 4 * scale);
+      tailGrad.addColorStop(0, '#14171f');
+      tailGrad.addColorStop(1, '#040507');
+      ctx.fillStyle = tailGrad;
+      ctx.strokeStyle = 'rgba(190, 200, 220, 0.28)';
+      ctx.lineWidth = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(-10 * scale, -10 * scale);
+      ctx.quadraticCurveTo(0, -6 * scale, 10 * scale, -10 * scale);
+      ctx.lineTo(0, 4 * scale);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // --- التاج الذهبي الفاخر مع أحجار كريمة بنفسجية ---
+      const crownBaseY = -bodyH * 0.77;
+      const crownW = bodyW * 0.40;
+      const crownH = bodyH * 0.31;
+
+      const goldGrad = ctx.createLinearGradient(-crownW, crownBaseY, crownW, crownBaseY);
+      goldGrad.addColorStop(0, '#8c6208');
+      goldGrad.addColorStop(0.22, '#ffd700');
+      goldGrad.addColorStop(0.5, '#d4af37');
+      goldGrad.addColorStop(0.78, '#ffdf4d');
+      goldGrad.addColorStop(1, '#7a5206');
+
+      ctx.fillStyle = goldGrad;
+      ctx.strokeStyle = '#fff2a6';
+      ctx.lineWidth = 1.3;
+
+      ctx.beginPath();
+      ctx.moveTo(-crownW, crownBaseY);
+      ctx.lineTo(-crownW * 0.85, crownBaseY - crownH * 0.72);
+      ctx.lineTo(-crownW * 0.42, crownBaseY - crownH * 0.36);
+      ctx.lineTo(0, crownBaseY - crownH);
+      ctx.lineTo(crownW * 0.42, crownBaseY - crownH * 0.36);
+      ctx.lineTo(crownW * 0.85, crownBaseY - crownH * 0.72);
+      ctx.lineTo(crownW, crownBaseY);
+      ctx.quadraticCurveTo(0, crownBaseY + 4 * scale, -crownW, crownBaseY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // قاعدة التاج الذهبية المنحنية لتلتف حول الرأس بواقعية
+      ctx.fillStyle = '#b88b1e';
+      ctx.beginPath();
+      ctx.moveTo(-crownW, crownBaseY - 4 * scale);
+      ctx.quadraticCurveTo(0, crownBaseY, crownW, crownBaseY - 4 * scale);
+      ctx.lineTo(crownW, crownBaseY);
+      ctx.quadraticCurveTo(0, crownBaseY + 4 * scale, -crownW, crownBaseY);
+      ctx.closePath();
+      ctx.fill();
+
+      function drawPurpleGem(gx, gy, gw, gh) {
+        ctx.save();
+        ctx.translate(gx, gy);
+
+        const gemGlow = ctx.createRadialGradient(0, 0, 1, 0, 0, gh * 1.4);
+        gemGlow.addColorStop(0, 'rgba(186, 85, 255, 0.55)');
+        gemGlow.addColorStop(1, 'rgba(120, 30, 200, 0)');
+        ctx.fillStyle = gemGlow;
+        ctx.beginPath();
+        ctx.arc(0, 0, gh * 1.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        const gemGrad = ctx.createLinearGradient(-gw, -gh, gw, gh);
+        gemGrad.addColorStop(0, '#e0aaff');
+        gemGrad.addColorStop(0.45, '#9d4edd');
+        gemGrad.addColorStop(1, '#3c096c');
+
+        ctx.fillStyle = gemGrad;
+        ctx.strokeStyle = '#f3d5ff';
+        ctx.lineWidth = 0.9;
+
         ctx.beginPath();
         ctx.moveTo(0, -gh);
-        ctx.lineTo(gw, -gh * 0.38);
-        ctx.lineTo(gw, gh * 0.38);
+        ctx.lineTo(gw, 0);
         ctx.lineTo(0, gh);
-        ctx.lineTo(-gw, gh * 0.38);
-        ctx.lineTo(-gw, -gh * 0.38);
+        ctx.lineTo(-gw, 0);
         ctx.closePath();
         ctx.fill();
-
-        // أوجه القطع الداخلية للجوهرة (Facets)
-        ctx.strokeStyle = 'rgba(255, 190, 200, 0.65)';
-        ctx.lineWidth = 0.85 * scale;
-        ctx.beginPath();
-        ctx.moveTo(0, -gh * 0.55);
-        ctx.lineTo(gw * 0.5, -gh * 0.2);
-        ctx.lineTo(gw * 0.5, gh * 0.2);
-        ctx.lineTo(0, gh * 0.55);
-        ctx.lineTo(-gw * 0.5, gh * 0.2);
-        ctx.lineTo(-gw * 0.5, -gh * 0.2);
-        ctx.closePath();
         ctx.stroke();
 
-        // خطوط ربط الزوايا
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.beginPath();
-        ctx.moveTo(0, -gh); ctx.lineTo(0, -gh * 0.55);
-        ctx.moveTo(gw, -gh * 0.38); ctx.lineTo(gw * 0.5, -gh * 0.2);
-        ctx.moveTo(gw, gh * 0.38); ctx.lineTo(gw * 0.5, gh * 0.2);
-        ctx.moveTo(0, gh); ctx.lineTo(0, gh * 0.55);
-        ctx.moveTo(-gw, gh * 0.38); ctx.lineTo(-gw * 0.5, gh * 0.2);
-        ctx.moveTo(-gw, -gh * 0.38); ctx.lineTo(-gw * 0.5, -gh * 0.2);
-        ctx.stroke();
-
-        // انعكاس ضوئي أبيض حاد على الياقوت الأحمر
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
-        ctx.beginPath();
-        ctx.ellipse(-gw * 0.22, -gh * 0.28, gw * 0.22, gh * 0.12, -0.4, 0, Math.PI * 2);
+        ctx.arc(-gw * 0.25, -gh * 0.25, 1.2 * scale, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();
       }
 
-      // الجوهرة الحمراء الوسطى الكبيرة
-      drawRealisticRuby(-baseW * 0.02, -crownH * 0.34, 11 * scale, 18 * scale, 0);
-      // الجوهرة الحمراء اليسرى
-      drawRealisticRuby(-baseW * 0.58, -crownH * 0.30, 8.5 * scale, 12.5 * scale, -0.05);
-      // الجوهرة الحمراء اليمنى
-      drawRealisticRuby(baseW * 0.62, -crownH * 0.28, 7 * scale, 11 * scale, 0.12);
+      drawPurpleGem(0, crownBaseY - crownH * 0.28, 6 * scale, 9 * scale);
+      drawPurpleGem(-crownW * 0.56, crownBaseY - crownH * 0.22, 4.2 * scale, 6 * scale);
+      drawPurpleGem(crownW * 0.56, crownBaseY - crownH * 0.22, 4.2 * scale, 6 * scale);
 
       ctx.restore();
     }
 
-    // رسم البطريق المطابق للصورة (جسم شبكي نقطي مضيء، عيون سوداء مستديرة، منقار مدبب، جناح، وأقدام صغيرة تتحرك في الظلام)
-    function drawParticlePenguin(time) {
-      const scale = Math.max(0.72, Math.min(width, height) / 760);
-      const cx = width * 0.5;
-      const baseY = height * 0.77;
-
-      // حركة المشي في الظلام
-      const walkCycle = time * 0.0052;
-      const bobY = Math.abs(Math.sin(walkCycle)) * 8 * scale;
-      const sway = Math.sin(walkCycle) * 0.04;
-      const leftStep = Math.sin(walkCycle);
-      const rightStep = -Math.sin(walkCycle);
-
-      const bodyW = 148 * scale;
-      const bodyH = 245 * scale;
-      const rx = bodyW * 0.5;
-
-      // جسيمات متطايرة خلف البطريق أثناء سيره (مثل الأثر في أسفل يسار الصورة)
-      trailingParticles.forEach((tp, idx) => {
-        const loop = ((time * 0.00045 * tp.speed + tp.xOff) % 1);
-        const px = cx - rx * 0.85 - loop * 115 * scale;
-        const py = baseY - bodyH * (0.08 + tp.yOff * 0.45) + Math.sin(time * 0.003 + tp.phase) * 12 * scale - loop * 22 * scale;
-        const alpha = (1 - loop) * 0.65;
-        ctx.fillStyle = `rgba(235, 240, 250, ${alpha})`;
-        ctx.fillRect(px, py, tp.size * scale, tp.size * scale);
-      });
-
-      // --- أقدام صغيرة متناسقة مع الجسم النقطي ---
-      function drawDotFoot(offsetX, stepVal) {
-        const lift = Math.max(0, stepVal) * 7 * scale;
-        const forward = stepVal * 5 * scale;
-        ctx.save();
-        ctx.translate(cx + offsetX + forward, baseY - lift + 4 * scale);
-
-        ctx.fillStyle = 'rgba(20, 22, 28, 0.9)';
-        ctx.strokeStyle = 'rgba(240, 245, 255, 0.82)';
-        ctx.lineWidth = 1.2 * scale;
-
-        ctx.beginPath();
-        ctx.ellipse(0, 0, 16 * scale, 7 * scale, 0.1, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        // نقاط مضيئة على القدم
-        ctx.fillStyle = '#ffffff';
-        for (let d = -10; d <= 10; d += 5) {
-          ctx.fillRect(d * scale, -1 * scale, 1.3 * scale, 1.3 * scale);
-        }
-        ctx.restore();
-      }
-
-      drawDotFoot(-rx * 0.34, leftStep);
-      drawDotFoot(rx * 0.34, rightStep);
-
-      // --- جسم البطريق الرئيسي ---
-      ctx.save();
-      ctx.translate(cx, baseY - bobY);
-      ctx.rotate(sway);
-
-      const topY = -bodyH;
-
-      // القاعدة السوداء للجسم
-      ctx.fillStyle = '#040507';
-      ctx.beginPath();
-      ctx.moveTo(-rx * 0.92, topY + 12 * scale);
-      ctx.bezierCurveTo(-rx * 1.05, topY + bodyH * 0.45, -rx * 1.02, -12 * scale, -rx * 0.78, 0);
-      ctx.quadraticCurveTo(0, 10 * scale, rx * 0.78, 0);
-      ctx.bezierCurveTo(rx * 1.02, -12 * scale, rx * 1.05, topY + bodyH * 0.45, rx * 0.92, topY + 12 * scale);
-      ctx.closePath();
-      ctx.fill();
-
-      // رسم الشبكة النقطية ثلاثية الأبعاد (البطن الأبيض المضيء والظهر الأسود المحدد بنقاط فضية مثل الصورة)
-      const faceCenterAngle = 0.34; // زاوية الالتفاف الثلاثية الأبعاد كما في الصورة
-
-      for (let i = 0; i < bodyDots.length; i++) {
-        const d = bodyDots[i];
-        const y = topY + 10 * scale + d.v * (bodyH - 12 * scale);
-
-        // عرض الجسم عند الارتفاع v
-        const profile = d.v < 0.15
-          ? 0.9 + (d.v / 0.15) * 0.1
-          : (d.v > 0.85 ? 1 - ((d.v - 0.85) / 0.15) * 0.18 : 1.0);
-
-        const sinU = Math.sin(d.u);
-        const cosU = Math.cos(d.u);
-
-        // إظهار النصف الأمامي المرئي فقط من الأسطوانة
-        if (cosU < -0.15) continue;
-
-        const x = sinU * rx * profile;
-
-        // تحديد منطقة البطن/الوجه البيضاء المضيئة مقابل الظهر الأسود
-        const relAngle = d.u > Math.PI ? d.u - Math.PI * 2 : d.u;
-        const bellyWidth = d.v < 0.36 ? 0.62 : 0.72;
-        const isBelly = Math.abs(relAngle - faceCenterAngle) < bellyWidth && d.v > 0.04;
-
-        // إضاءة الحواف (Rim Light)
-        const isRim = cosU < 0.28;
-
-        let alpha = 0;
-        let dotSize = 1.25 * scale;
-
-        if (isBelly) {
-          // منطقة الوجه والبطن البيضاء المضيئة بنسيج نقطي كثيف
-          const edgeFade = 1 - Math.pow(Math.abs(relAngle - faceCenterAngle) / bellyWidth, 3);
-          alpha = (0.45 + cosU * 0.55) * (0.65 + 0.35 * edgeFade);
-          dotSize = 1.35 * scale;
-        } else if (isRim) {
-          // تحديد الحواف الخارجية للجسم الأسود بنقاط بيضاء متوهجة
-          alpha = 0.78;
-          dotSize = 1.45 * scale;
-        } else {
-          // الظهر الأسود بنقاط فضية متباعدة خفيفة
-          alpha = 0.18 + cosU * 0.14;
-          dotSize = 1.05 * scale;
-        }
-
-        ctx.fillStyle = `rgba(242, 246, 255, ${Math.min(1, alpha)})`;
-        ctx.fillRect(x, y, dotSize, dotSize);
-      }
-
-      // توهج ناعم حول حواف البطريق
-      ctx.strokeStyle = 'rgba(235, 242, 255, 0.38)';
-      ctx.lineWidth = 1.4 * scale;
-      ctx.beginPath();
-      ctx.moveTo(-rx * 0.92, topY + 12 * scale);
-      ctx.bezierCurveTo(-rx * 1.05, topY + bodyH * 0.45, -rx * 1.02, -12 * scale, -rx * 0.78, 0);
-      ctx.quadraticCurveTo(0, 10 * scale, rx * 0.78, 0);
-      ctx.bezierCurveTo(rx * 1.02, -12 * scale, rx * 1.05, topY + bodyH * 0.45, rx * 0.92, topY + 12 * scale);
-      ctx.stroke();
-
-      // --- الجناح الأيسر النقطي المتحرك أثناء المشي (بنفس وضعية الصورة) ---
-      const wingSwing = Math.sin(walkCycle) * 0.14;
-      ctx.save();
-      ctx.translate(-rx * 0.46, topY + bodyH * 0.48);
-      ctx.rotate(-0.62 + wingSwing);
-
-      ctx.fillStyle = '#06070a';
-      ctx.strokeStyle = 'rgba(245, 248, 255, 0.88)';
-      ctx.lineWidth = 1.6 * scale;
-      ctx.beginPath();
-      ctx.ellipse(0, 34 * scale, 13 * scale, 42 * scale, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      // نقاط دقيقة على الجناح
-      ctx.fillStyle = 'rgba(235, 242, 255, 0.45)';
-      for (let wy = 4; wy < 66; wy += 6) {
-        for (let wx = -7; wx <= 7; wx += 5) {
-          if ((wx * wx) / 144 + ((wy - 34) * (wy - 34)) / 1400 < 0.85) {
-            ctx.fillRect(wx * scale, wy * scale, 1.1 * scale, 1.1 * scale);
-          }
-        }
-      }
-      ctx.restore();
-
-      // --- العينان السوداوان المستديرتان الكبيرتان (مثل الصورة تماماً) ---
-      const eyeY = topY + bodyH * 0.24;
-      // العين اليسرى
-      ctx.fillStyle = '#020203';
-      ctx.beginPath();
-      ctx.arc(-rx * 0.06, eyeY, 17.5 * scale, 0, Math.PI * 2);
-      ctx.fill();
-
-      // العين اليمنى
-      ctx.beginPath();
-      ctx.arc(rx * 0.62, eyeY - 2 * scale, 16 * scale, 0, Math.PI * 2);
-      ctx.fill();
-
-      // --- المنقار المخروطي النقطي المضيء (مثل الصورة تماماً) ---
-      const beakBaseX = rx * 0.28;
-      const beakBaseY = eyeY + 14 * scale;
-      const beakTipX = rx * 1.15;
-      const beakTipY = beakBaseY + 3 * scale;
-
-      const beakGrad = ctx.createLinearGradient(beakBaseX, beakBaseY, beakTipX, beakTipY);
-      beakGrad.addColorStop(0, '#8e96a4');
-      beakGrad.addColorStop(0.55, '#dfe5f0');
-      beakGrad.addColorStop(1, '#ffffff');
-
-      ctx.fillStyle = beakGrad;
-      ctx.beginPath();
-      ctx.moveTo(beakBaseX, beakBaseY - 12 * scale);
-      ctx.lineTo(beakTipX, beakTipY);
-      ctx.lineTo(beakBaseX, beakBaseY + 12 * scale);
-      ctx.quadraticCurveTo(beakBaseX - 8 * scale, beakBaseY, beakBaseX, beakBaseY - 12 * scale);
-      ctx.closePath();
-      ctx.fill();
-
-      // نقاط مضيئة على المنقار
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-      for (let bx = 0; bx < 14; bx++) {
-        const t = bx / 14;
-        const px = beakBaseX + t * (beakTipX - beakBaseX);
-        const halfH = (1 - t) * 10 * scale;
-        for (let by = -halfH; by <= halfH; by += 3.5 * scale) {
-          ctx.fillRect(px, beakBaseY + by, 1.2 * scale, 1.2 * scale);
-        }
-      }
-
-      // --- التاج الذهبي الواقعي بالأحجار الحمراء فوق الرأس ---
-      drawRealisticGoldCrown(0, topY + 6 * scale, rx, scale);
-
-      ctx.restore();
-    }
-
-    // عداد الوقت الحي: الساعة : الدقيقة : الثانية + السنة والأيام
+    // عداد الوقت الحي مع الساعة والدقيقة والثانية واسم اليوم وعدد الأيام والسنة
     function drawFullTimeCounter() {
       const now = new Date();
       const year = now.getFullYear();
+
       const startOfYear = new Date(year, 0, 1);
-      const dayOfYear = Math.floor((now - startOfYear) / (1000 * 60 * 60 * 24)) + 1;
+      const diffMs = now - startOfYear;
+      const dayOfYear = Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
+
+      const dayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+      const dayName = dayNames[now.getDay()];
 
       const hours = pad2(now.getHours());
       const minutes = pad2(now.getMinutes());
       const seconds = pad2(now.getSeconds());
 
       const cx = width * 0.5;
-      const topY = Math.max(68, height * 0.11);
+      const topY = Math.max(72, height * 0.12);
 
       ctx.save();
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
+      // الساعة : الدقيقة : الثانية
       const mainFontSize = Math.min(34, Math.max(22, width * 0.065));
       ctx.font = `300 ${mainFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace`;
-      ctx.fillStyle = 'rgba(242, 245, 252, 0.92)';
-      ctx.shadowColor = 'rgba(255, 215, 100, 0.22)';
-      ctx.shadowBlur = 12;
+      ctx.fillStyle = 'rgba(240, 244, 252, 0.9)';
       ctx.fillText(`${hours} : ${minutes} : ${seconds}`, cx, topY);
 
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+      // خط فاصل خافت
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(cx - 78, topY + mainFontSize * 0.72);
-      ctx.lineTo(cx + 78, topY + mainFontSize * 0.72);
+      ctx.moveTo(cx - 88, topY + mainFontSize * 0.72);
+      ctx.lineTo(cx + 88, topY + mainFontSize * 0.72);
       ctx.stroke();
 
+      // اسم اليوم + عدد الأيام + السنة
       const subFontSize = Math.min(15, Math.max(12, width * 0.032));
-      ctx.font = `400 ${subFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace`;
-      ctx.fillStyle = 'rgba(205, 212, 228, 0.72)';
-      ctx.fillText(`${year}  •  ${String(dayOfYear).padStart(3, '0')}D`, cx, topY + mainFontSize * 1.32);
+      ctx.font = `400 ${subFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+      ctx.fillStyle = 'rgba(195, 205, 225, 0.72)';
+      ctx.fillText(`${dayName}  •  ${year}  •  ${String(dayOfYear).padStart(3, '0')}D`, cx, topY + mainFontSize * 1.32);
 
       ctx.restore();
     }
 
     function animate(time) {
       const t = typeof time === 'number' ? time : performance.now();
-      drawMovingDarkness(t);
-      drawParticlePenguin(t);
+      drawPureDarkness(t);
+      drawRealisticBlackPenguinFromBack(t);
       drawFullTimeCounter();
       requestAnimationFrame(animate);
     }
