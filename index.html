@@ -94,23 +94,21 @@
       height = canvas.height = window.innerHeight || 844;
     });
 
+    // Load uploaded horror image placed next to index.html
+    const ghostImg = new Image();
+    ghostImg.src = './IMG_5669.jpeg';
+
     function pad2(num) {
       return String(num).padStart(2, '0');
     }
 
-    // --- Web Audio & Vibration Horror Engine (1 Minute Full Duration) ---
+    // --- Web Audio & Vibration Horror Engine (Triggered ONLY on "click here") ---
     const HORROR_DURATION_MS = 60000; // 1 minute
     const HORROR_DURATION_SEC = 60;   // 1 minute
 
     let audioCtx = null;
-    let audioUnlocked = false;
-    let pendingHorrorSound = false;
     let horrorFlashUntil = 0;
     let activeSoundStopTimer = null;
-
-    // Trigger ghost 5 seconds after entering the page
-    const pageEnterTime = performance.now();
-    let entryGhostTriggered = false;
 
     function triggerHorrorVibration() {
       try {
@@ -138,7 +136,6 @@
       }
     }
 
-    // Plays terrifying horror shrieks, sub-bass booms, and static for a full 60 seconds
     function playMaxHorrorSound() {
       if (!audioCtx || audioCtx.state !== 'running') return;
       stopCurrentHorrorSound();
@@ -195,7 +192,6 @@
 
       const subGain = audioCtx.createGain();
 
-      // 30 horror bursts * 2 seconds = full 60 seconds
       for (let step = 0; step < 30; step++) {
         const tStart = now + step * 2.0;
         const tMid = tStart + 0.6;
@@ -277,7 +273,10 @@
       }, HORROR_DURATION_MS);
     }
 
-    function ensureAudioContextAndPlay() {
+    function triggerOnClickHere(t) {
+      horrorFlashUntil = t + HORROR_DURATION_MS;
+      triggerHorrorVibration();
+
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return;
 
@@ -285,42 +284,19 @@
         audioCtx = new AudioContextClass();
       }
 
-      const onRunning = () => {
-        audioUnlocked = true;
-        pendingHorrorSound = false;
-        playMaxHorrorSound();
-      };
-
       if (audioCtx.state === 'suspended') {
-        audioCtx.resume().then(onRunning).catch(() => {
-          pendingHorrorSound = true;
-        });
+        audioCtx.resume().then(() => {
+          playMaxHorrorSound();
+        }).catch(() => {});
       } else {
-        onRunning();
-      }
-    }
-
-    function triggerHorrorEvent(t) {
-      horrorFlashUntil = t + HORROR_DURATION_MS;
-      triggerHorrorVibration();
-      if (audioUnlocked && audioCtx && audioCtx.state === 'running') {
         playMaxHorrorSound();
-      } else {
-        pendingHorrorSound = true;
-        ensureAudioContextAndPlay();
       }
     }
 
-    // Clicking "click here" button always triggers 1-minute ghost, blood, and horror sound
     soundBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      triggerHorrorEvent(performance.now());
+      triggerOnClickHere(performance.now());
     });
-
-    // Tapping/clicking anywhere on the screen triggers 1-minute ghost, blood, and horror sound
-    canvas.addEventListener('pointerdown', () => {
-      triggerHorrorEvent(performance.now());
-    }, { passive: true });
 
     const darkMotionSpecks = Array.from({ length: 45 }, () => ({
       x: Math.random() * width,
@@ -672,91 +648,39 @@
       ctx.restore();
     }
 
-    function drawUglyHorrorGhost(intensity, t) {
+    function drawHorrorImageOverlay(intensity, t) {
       ctx.save();
 
-      ctx.fillStyle = `rgba(14, 0, 2, ${0.74 * intensity})`;
+      ctx.fillStyle = `rgba(14, 0, 2, ${0.76 * intensity})`;
       ctx.fillRect(0, 0, width, height);
 
-      // Continuous violent movement & shaking throughout the full minute
-      const shakeX = Math.sin(t * 0.095) * 14 * intensity + Math.cos(t * 0.031) * 26 * intensity;
-      const shakeY = Math.cos(t * 0.115) * 11 * intensity + Math.sin(t * 0.024) * 18 * intensity;
-      const tiltAngle = Math.sin(t * 0.022) * 0.09 * intensity;
+      const shakeX = Math.sin(t * 0.095) * 14 * intensity + Math.cos(t * 0.031) * 24 * intensity;
+      const shakeY = Math.cos(t * 0.115) * 11 * intensity + Math.sin(t * 0.024) * 16 * intensity;
+      const tiltAngle = Math.sin(t * 0.022) * 0.08 * intensity;
       const cx = width * 0.5 + shakeX;
-      const cy = height * 0.52 + shakeY;
+      const cy = height * 0.5 + shakeY;
 
-      const ghostScale = (Math.max(0.85, Math.min(width, height) / 420)) * (0.94 + 0.1 * Math.sin(t * 0.018)) * intensity;
+      ctx.globalAlpha = Math.max(0, Math.min(1, intensity));
 
-      ctx.translate(cx, cy);
-      ctx.rotate(tiltAngle);
-      ctx.scale(ghostScale, ghostScale);
+      if (ghostImg.complete && ghostImg.naturalWidth > 0) {
+        const imgRatio = ghostImg.naturalWidth / ghostImg.naturalHeight;
+        const maxW = width * 0.88;
+        const maxH = height * 0.82;
 
-      const shroudGrad = ctx.createLinearGradient(0, -170, 0, 190);
-      shroudGrad.addColorStop(0, `rgba(225, 220, 220, ${0.95 * intensity})`);
-      shroudGrad.addColorStop(0.55, `rgba(155, 145, 145, ${0.9 * intensity})`);
-      shroudGrad.addColorStop(1, `rgba(65, 5, 10, ${0.28 * intensity})`);
+        let drawW = maxW;
+        let drawH = drawW / imgRatio;
+        if (drawH > maxH) {
+          drawH = maxH;
+          drawW = drawH * imgRatio;
+        }
 
-      ctx.fillStyle = shroudGrad;
-      ctx.strokeStyle = `rgba(180, 0, 15, ${0.9 * intensity})`;
-      ctx.lineWidth = 3;
+        const pulseScale = 0.96 + 0.07 * Math.sin(t * 0.02);
 
-      ctx.beginPath();
-      ctx.moveTo(-115, 15);
-      ctx.bezierCurveTo(-125, -135, -75, -175, 0, -175);
-      ctx.bezierCurveTo(75, -175, 125, -135, 115, 15);
-
-      const teeth = 9;
-      for (let i = teeth; i >= 0; i--) {
-        const tx = -115 + (230 / teeth) * i;
-        const ty = 15 + (i % 2 === 0 ? 155 : 95) + Math.sin(t * 0.02 + i) * 14;
-        ctx.lineTo(tx, ty);
+        ctx.translate(cx, cy);
+        ctx.rotate(tiltAngle);
+        ctx.scale(pulseScale, pulseScale);
+        ctx.drawImage(ghostImg, -drawW * 0.5, -drawH * 0.5, drawW, drawH);
       }
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      const eyePositions = [-44, 44];
-      eyePositions.forEach((ex, idx) => {
-        const ey = -58 + (idx === 1 ? -5 : 4) + Math.sin(t * 0.03 + idx) * 2.5;
-        ctx.fillStyle = '#080001';
-        ctx.beginPath();
-        ctx.ellipse(ex, ey, 26, 33, idx === 0 ? -0.22 : 0.22, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.strokeStyle = `rgba(210, 10, 25, ${0.92 * intensity})`;
-        ctx.lineWidth = 2.5;
-        ctx.stroke();
-
-        ctx.fillStyle = '#ff001e';
-        ctx.beginPath();
-        ctx.arc(ex + Math.sin(t * 0.05) * 4.5, ey + Math.cos(t * 0.04) * 3, 7.5, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      ctx.fillStyle = '#090001';
-      ctx.strokeStyle = `rgba(155, 0, 12, ${0.95 * intensity})`;
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.moveTo(-48, 12);
-      ctx.quadraticCurveTo(-20, -12, 0, 8);
-      ctx.quadraticCurveTo(24, -18, 52, 16);
-      ctx.quadraticCurveTo(28, 68, 0, 74);
-      ctx.quadraticCurveTo(-32, 66, -48, 12);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = '#d8cfcf';
-      const mouthTeeth = [-32, -16, 0, 16, 32];
-      mouthTeeth.forEach((mx, i) => {
-        const topY = i % 2 === 0 ? 8 : 12;
-        ctx.beginPath();
-        ctx.moveTo(mx - 5, topY);
-        ctx.lineTo(mx, topY + 15);
-        ctx.lineTo(mx + 5, topY);
-        ctx.closePath();
-        ctx.fill();
-      });
 
       ctx.restore();
     }
@@ -764,12 +688,6 @@
     function animate(time) {
       const t = typeof time === 'number' ? time : performance.now();
       const now = new Date();
-
-      // Ghost appears 5 seconds after entering the site
-      if (!entryGhostTriggered && t - pageEnterTime >= 5000) {
-        entryGhostTriggered = true;
-        triggerHorrorEvent(t);
-      }
 
       drawPureDarkness();
       drawRealisticBlackPenguinFromBack(t);
@@ -779,7 +697,7 @@
       if (remainingMs > 0) {
         const intensity = Math.min(1, remainingMs / 1000);
         drawBloodFrame(intensity, t);
-        drawUglyHorrorGhost(intensity, t);
+        drawHorrorImageOverlay(intensity, t);
       }
 
       requestAnimationFrame(animate);
