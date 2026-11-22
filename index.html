@@ -35,6 +35,8 @@
       height: 100%;
       overflow: hidden;
       background-color: #000000;
+      user-select: none;
+      -webkit-user-select: none;
     }
 
     canvas {
@@ -42,14 +44,30 @@
       width: 100vw;
       height: 100vh;
     }
+
+    #audio-hint {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 190, 190, 0.75);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.4px;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+      z-index: 10;
+    }
   </style>
 </head>
 <body>
   <canvas id="scene"></canvas>
+  <div id="audio-hint">TAP SCREEN TO ENABLE MAX HORROR AUDIO</div>
 
   <script>
     const canvas = document.getElementById('scene');
     const ctx = canvas.getContext('2d');
+    const audioHint = document.getElementById('audio-hint');
 
     let width = canvas.width = window.innerWidth || 390;
     let height = canvas.height = window.innerHeight || 844;
@@ -63,6 +81,121 @@
       return String(num).padStart(2, '0');
     }
 
+    // --- Web Audio Horror Sound Engine ---
+    let audioCtx = null;
+    let audioUnlocked = false;
+    let lastTriggeredMinuteKey = '';
+    let horrorFlashUntil = 0;
+
+    function unlockAudio() {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+
+      if (!audioCtx) {
+        audioCtx = new AudioContextClass();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+      }
+      audioUnlocked = true;
+      if (audioHint) {
+        audioHint.style.opacity = '0';
+      }
+    }
+
+    window.addEventListener('pointerdown', unlockAudio, { passive: true });
+    window.addEventListener('keydown', unlockAudio, { passive: true });
+
+    function playMaxHorrorSound() {
+      if (!audioCtx || audioCtx.state !== 'running') return;
+
+      const now = audioCtx.currentTime;
+      const duration = 2.4;
+
+      // Compressor / Limiter near maximum output without harsh digital clipping
+      const compressor = audioCtx.createDynamicsCompressor();
+      compressor.threshold.setValueAtTime(-6, now);
+      compressor.knee.setValueAtTime(12, now);
+      compressor.ratio.setValueAtTime(12, now);
+      compressor.attack.setValueAtTime(0.002, now);
+      compressor.release.setValueAtTime(0.25, now);
+
+      const masterGain = audioCtx.createGain();
+      masterGain.gain.setValueAtTime(1.0, now);
+      masterGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      masterGain.connect(compressor);
+      compressor.connect(audioCtx.destination);
+
+      // 1. Harsh dissonant scream / shriek oscillators
+      const scream1 = audioCtx.createOscillator();
+      scream1.type = 'sawtooth';
+      scream1.frequency.setValueAtTime(620, now);
+      scream1.frequency.exponentialRampToValueAtTime(1480, now + 0.35);
+      scream1.frequency.exponentialRampToValueAtTime(290, now + duration);
+
+      const scream2 = audioCtx.createOscillator();
+      scream2.type = 'square';
+      scream2.frequency.setValueAtTime(895, now);
+      scream2.frequency.exponentialRampToValueAtTime(1890, now + 0.45);
+      scream2.frequency.exponentialRampToValueAtTime(215, now + duration);
+
+      const screamGain = audioCtx.createGain();
+      screamGain.gain.setValueAtTime(0.85, now);
+      screamGain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+
+      scream1.connect(screamGain);
+      scream2.connect(screamGain);
+      screamGain.connect(masterGain);
+
+      // 2. Deep sub-bass horror boom
+      const subOsc = audioCtx.createOscillator();
+      subOsc.type = 'triangle';
+      subOsc.frequency.setValueAtTime(115, now);
+      subOsc.frequency.exponentialRampToValueAtTime(34, now + 1.2);
+
+      const subGain = audioCtx.createGain();
+      subGain.gain.setValueAtTime(0.95, now);
+      subGain.gain.exponentialRampToValueAtTime(0.01, now + 1.4);
+
+      subOsc.connect(subGain);
+      subGain.connect(masterGain);
+
+      // 3. Filtered white noise burst for terrifying static/shriek texture
+      const bufferSize = Math.floor(audioCtx.sampleRate * duration);
+      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+
+      const whiteNoise = audioCtx.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+
+      const bandpass = audioCtx.createBiquadFilter();
+      bandpass.type = 'bandpass';
+      bandpass.frequency.setValueAtTime(1600, now);
+      bandpass.Q.setValueAtTime(2.8, now);
+
+      const noiseGain = audioCtx.createGain();
+      noiseGain.gain.setValueAtTime(0.9, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+
+      whiteNoise.connect(bandpass);
+      bandpass.connect(noiseGain);
+      noiseGain.connect(masterGain);
+
+      scream1.start(now);
+      scream2.start(now);
+      subOsc.start(now);
+      whiteNoise.start(now);
+
+      scream1.stop(now + duration);
+      scream2.stop(now + duration);
+      subOsc.stop(now + duration);
+      whiteNoise.stop(now + duration);
+    }
+
     const darkMotionSpecks = Array.from({ length: 45 }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
@@ -71,7 +204,7 @@
       alpha: Math.random() * 0.08 + 0.02
     }));
 
-    function drawPureDarkness(time) {
+    function drawPureDarkness() {
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, width, height);
 
@@ -324,8 +457,7 @@
       ctx.restore();
     }
 
-    function drawFullTimeCounter() {
-      const now = new Date();
+    function drawFullTimeCounter(now) {
       const year = now.getFullYear();
 
       const startOfYear = new Date(year, 0, 1);
@@ -366,11 +498,175 @@
       ctx.restore();
     }
 
+    // --- Blood Border & Ugly Horror Ghost Overlay when seconds === 00 ---
+    const bloodDrips = Array.from({ length: 34 }, (_, i) => ({
+      x: ((i + 0.5) / 34) * width,
+      len: 35 + (i % 5) * 24,
+      speed: 0.7 + (i % 4) * 0.35,
+      w: 4 + (i % 3) * 3
+    }));
+
+    function drawBloodFrame(intensity, t) {
+      ctx.save();
+
+      // Deep crimson vignette around screen edges
+      const edgeGrad = ctx.createRadialGradient(
+        width * 0.5, height * 0.5, Math.min(width, height) * 0.25,
+        width * 0.5, height * 0.5, Math.max(width, height) * 0.72
+      );
+      edgeGrad.addColorStop(0, 'rgba(120, 0, 0, 0)');
+      edgeGrad.addColorStop(0.7, `rgba(145, 0, 10, ${0.38 * intensity})`);
+      edgeGrad.addColorStop(1, `rgba(95, 0, 0, ${0.88 * intensity})`);
+
+      ctx.fillStyle = edgeGrad;
+      ctx.fillRect(0, 0, width, height);
+
+      // Thick blood border along all 4 sides
+      const borderSize = Math.max(18, Math.min(width, height) * 0.045) * intensity;
+      ctx.fillStyle = `rgba(130, 0, 8, ${0.9 * intensity})`;
+      ctx.fillRect(0, 0, width, borderSize);
+      ctx.fillRect(0, height - borderSize, width, borderSize);
+      ctx.fillRect(0, 0, borderSize, height);
+      ctx.fillRect(width - borderSize, 0, borderSize, height);
+
+      // Dripping blood streaks from top edge
+      bloodDrips.forEach((drip, idx) => {
+        const dx = (drip.x / Math.max(1, width)) * width;
+        const dripLen = (drip.len + Math.sin(t * 0.008 + idx) * 14) * intensity;
+
+        const dripGrad = ctx.createLinearGradient(0, borderSize, 0, borderSize + dripLen);
+        dripGrad.addColorStop(0, `rgba(155, 0, 12, ${0.95 * intensity})`);
+        dripGrad.addColorStop(0.75, `rgba(110, 0, 8, ${0.82 * intensity})`);
+        dripGrad.addColorStop(1, 'rgba(90, 0, 5, 0)');
+
+        ctx.fillStyle = dripGrad;
+        ctx.beginPath();
+        ctx.roundRect(dx - drip.w * 0.5, borderSize - 2, drip.w, dripLen, drip.w * 0.5);
+        ctx.fill();
+      });
+
+      ctx.restore();
+    }
+
+    function drawUglyHorrorGhost(intensity, t) {
+      ctx.save();
+
+      // Dark eerie cover over the screen
+      ctx.fillStyle = `rgba(12, 0, 2, ${0.72 * intensity})`;
+      ctx.fillRect(0, 0, width, height);
+
+      const shakeX = Math.sin(t * 0.09) * 10 * intensity;
+      const shakeY = Math.cos(t * 0.11) * 8 * intensity;
+      const cx = width * 0.5 + shakeX;
+      const cy = height * 0.52 + shakeY;
+
+      const ghostScale = Math.max(0.85, Math.min(width, height) / 420) * (0.92 + 0.08 * intensity);
+
+      ctx.translate(cx, cy);
+      ctx.scale(ghostScale, ghostScale);
+
+      // Ghostly tattered shroud covering central screen
+      const shroudGrad = ctx.createLinearGradient(0, -170, 0, 190);
+      shroudGrad.addColorStop(0, `rgba(225, 220, 220, ${0.94 * intensity})`);
+      shroudGrad.addColorStop(0.55, `rgba(155, 145, 145, ${0.88 * intensity})`);
+      shroudGrad.addColorStop(1, `rgba(65, 5, 10, ${0.25 * intensity})`);
+
+      ctx.fillStyle = shroudGrad;
+      ctx.strokeStyle = `rgba(170, 0, 15, ${0.85 * intensity})`;
+      ctx.lineWidth = 3;
+
+      ctx.beginPath();
+      ctx.moveTo(-115, 15);
+      ctx.bezierCurveTo(-125, -135, -75, -175, 0, -175);
+      ctx.bezierCurveTo(75, -175, 125, -135, 115, 15);
+
+      // Jagged ugly bottom tatters
+      const teeth = 9;
+      for (let i = teeth; i >= 0; i--) {
+        const tx = -115 + (230 / teeth) * i;
+        const ty = 15 + (i % 2 === 0 ? 155 : 95) + Math.sin(t * 0.015 + i) * 10;
+        ctx.lineTo(tx, ty);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Ugly sunken hollow eyes with glowing red pupils
+      const eyePositions = [-44, 44];
+      eyePositions.forEach((ex, idx) => {
+        const ey = -58 + (idx === 1 ? -5 : 4);
+        ctx.fillStyle = '#080001';
+        ctx.beginPath();
+        ctx.ellipse(ex, ey, 26, 33, idx === 0 ? -0.22 : 0.22, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Bloodshot ring around eye
+        ctx.strokeStyle = `rgba(210, 10, 25, ${0.9 * intensity})`;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Piercing red pupil
+        ctx.fillStyle = '#ff001e';
+        ctx.beginPath();
+        ctx.arc(ex + Math.sin(t * 0.04) * 3, ey + 2, 7.5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Distorted twisted mouth / scream
+      ctx.fillStyle = '#090001';
+      ctx.strokeStyle = `rgba(150, 0, 12, ${0.95 * intensity})`;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(-48, 12);
+      ctx.quadraticCurveTo(-20, -12, 0, 8);
+      ctx.quadraticCurveTo(24, -18, 52, 16);
+      ctx.quadraticCurveTo(28, 68, 0, 74);
+      ctx.quadraticCurveTo(-32, 66, -48, 12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Crooked jagged teeth inside mouth
+      ctx.fillStyle = '#d8cfcf';
+      const mouthTeeth = [-32, -16, 0, 16, 32];
+      mouthTeeth.forEach((mx, i) => {
+        const topY = i % 2 === 0 ? 8 : 12;
+        ctx.beginPath();
+        ctx.moveTo(mx - 5, topY);
+        ctx.lineTo(mx, topY + 15);
+        ctx.lineTo(mx + 5, topY);
+        ctx.closePath();
+        ctx.fill();
+      });
+
+      ctx.restore();
+    }
+
     function animate(time) {
       const t = typeof time === 'number' ? time : performance.now();
-      drawPureDarkness(t);
+      const now = new Date();
+      const seconds = now.getSeconds();
+      const minuteKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}-${now.getMinutes()}`;
+
+      if (seconds === 0 && lastTriggeredMinuteKey !== minuteKey) {
+        lastTriggeredMinuteKey = minuteKey;
+        horrorFlashUntil = t + 2600;
+        if (audioUnlocked) {
+          playMaxHorrorSound();
+        }
+      }
+
+      drawPureDarkness();
       drawRealisticBlackPenguinFromBack(t);
-      drawFullTimeCounter();
+      drawFullTimeCounter(now);
+
+      const remainingMs = horrorFlashUntil - t;
+      if (remainingMs > 0) {
+        const intensity = Math.min(1, remainingMs / 600);
+        drawBloodFrame(intensity, t);
+        drawUglyHorrorGhost(intensity, t);
+      }
+
       requestAnimationFrame(animate);
     }
 
