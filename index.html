@@ -81,7 +81,7 @@
   <canvas id="scene"></canvas>
   <button id="sound-btn" type="button">click here</button>
 
-  <audio id="custom-horror-audio" preload="auto" playsinline></audio>
+  <audio id="custom-horror-audio" src="./horror.mp3" preload="auto" playsinline></audio>
 
   <script>
     const canvas = document.getElementById('scene');
@@ -89,8 +89,9 @@
     const soundBtn = document.getElementById('sound-btn');
     const horrorAudio = document.getElementById('custom-horror-audio');
 
-    const CUSTOM_SOUND_FILE = './Jusatti890-scream-horror-sfx-490909 2.mp3';
-    horrorAudio.src = encodeURI(CUSTOM_SOUND_FILE);
+    const CUSTOM_SOUND_FILE = './horror.mp3';
+    horrorAudio.src = CUSTOM_SOUND_FILE;
+    horrorAudio.load();
 
     let width = canvas.width = window.innerWidth || 390;
     let height = canvas.height = window.innerHeight || 844;
@@ -131,15 +132,25 @@
 
       try {
         horrorAudio.pause();
-        horrorAudio.currentTime = 0;
-        horrorAudio.loop = true;
+        horrorAudio.muted = false;
         horrorAudio.volume = 1.0;
+        horrorAudio.loop = true;
+
+        if (!horrorAudio.src || !horrorAudio.src.endsWith('/horror.mp3')) {
+          horrorAudio.src = CUSTOM_SOUND_FILE;
+        }
+        horrorAudio.load();
+        horrorAudio.currentTime = 0;
 
         const playPromise = horrorAudio.play();
         if (playPromise && typeof playPromise.catch === 'function') {
-          playPromise.catch(() => {});
+          playPromise.catch((err) => {
+            console.warn('Audio play error:', err);
+          });
         }
-      } catch (_) {}
+      } catch (err) {
+        console.warn('Audio exception:', err);
+      }
 
       stopAudioTimer = setTimeout(() => {
         try {
