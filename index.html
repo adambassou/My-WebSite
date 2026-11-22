@@ -45,14 +45,45 @@
       width: 100vw;
       height: 100vh;
     }
+
+    #sound-btn {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 22px;
+      background: rgba(120, 0, 10, 0.75);
+      color: #ffffff;
+      border: 1px solid rgba(255, 70, 90, 0.8);
+      border-radius: 999px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      cursor: pointer;
+      z-index: 20;
+      box-shadow: 0 0 18px rgba(220, 0, 25, 0.55);
+      transition: opacity 0.3s ease, transform 0.2s ease, background 0.2s ease;
+    }
+
+    #sound-btn:active {
+      transform: translateX(-50%) scale(0.95);
+    }
+
+    #sound-btn.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
   <canvas id="scene"></canvas>
+  <button id="sound-btn" type="button">click here</button>
 
   <script>
     const canvas = document.getElementById('scene');
     const ctx = canvas.getContext('2d');
+    const soundBtn = document.getElementById('sound-btn');
 
     let width = canvas.width = window.innerWidth || 390;
     let height = canvas.height = window.innerHeight || 844;
@@ -66,7 +97,7 @@
       return String(num).padStart(2, '0');
     }
 
-    // --- Web Audio & Vibration Horror Engine ---
+    // --- Web Audio Horror Sound & Vibration Engine ---
     let audioCtx = null;
     let audioUnlocked = false;
     let pendingHorrorSound = false;
@@ -80,63 +111,105 @@
     function triggerHorrorVibration() {
       try {
         if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-          navigator.vibrate([180, 70, 220, 70, 320, 90, 260]);
+          navigator.vibrate([200, 60, 250, 60, 350, 80, 300]);
         }
       } catch (_) {}
+    }
+
+    function makeDistortionCurve(amount = 120) {
+      const nSamples = 44100;
+      const curve = new Float32Array(nSamples);
+      const deg = Math.PI / 180;
+      for (let i = 0; i < nSamples; i++) {
+        const x = (i * 2) / nSamples - 1;
+        curve[i] = ((3 + amount) * x * 20 * deg) / (Math.PI + amount * Math.abs(x));
+      }
+      return curve;
     }
 
     function playMaxHorrorSound() {
       if (!audioCtx || audioCtx.state !== 'running') return;
 
       const now = audioCtx.currentTime;
-      const duration = 2.4;
+      const duration = 2.6;
+
+      // Boosted chain with waveshaper distortion + compressor near max output
+      const shaper = audioCtx.createWaveShaper();
+      shaper.curve = makeDistortionCurve(140);
+      shaper.oversample = '4x';
 
       const compressor = audioCtx.createDynamicsCompressor();
-      compressor.threshold.setValueAtTime(-6, now);
-      compressor.knee.setValueAtTime(12, now);
-      compressor.ratio.setValueAtTime(12, now);
-      compressor.attack.setValueAtTime(0.002, now);
-      compressor.release.setValueAtTime(0.25, now);
+      compressor.threshold.setValueAtTime(-3, now);
+      compressor.knee.setValueAtTime(6, now);
+      compressor.ratio.setValueAtTime(16, now);
+      compressor.attack.setValueAtTime(0.001, now);
+      compressor.release.setValueAtTime(0.2, now);
+
+      const boostGain = audioCtx.createGain();
+      boostGain.gain.setValueAtTime(1.8, now);
 
       const masterGain = audioCtx.createGain();
       masterGain.gain.setValueAtTime(1.0, now);
+      masterGain.gain.setValueAtTime(1.0, now + duration - 0.35);
       masterGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
-      masterGain.connect(compressor);
-      compressor.connect(audioCtx.destination);
+      boostGain.connect(shaper);
+      shaper.connect(compressor);
+      compressor.connect(masterGain);
+      masterGain.connect(audioCtx.destination);
 
-      const scream1 = audioCtx.createOscillator();
-      scream1.type = 'sawtooth';
-      scream1.frequency.setValueAtTime(620, now);
-      scream1.frequency.exponentialRampToValueAtTime(1480, now + 0.35);
-      scream1.frequency.exponentialRampToValueAtTime(290, now + duration);
+      // 1. Piercing horror shriek / jumpscare oscillators with LFO pitch wobble
+      const lfo = audioCtx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.setValueAtTime(24, now);
 
-      const scream2 = audioCtx.createOscillator();
-      scream2.type = 'square';
-      scream2.frequency.setValueAtTime(895, now);
-      scream2.frequency.exponentialRampToValueAtTime(1890, now + 0.45);
-      scream2.frequency.exponentialRampToValueAtTime(215, now + duration);
+      const lfoGain = audioCtx.createGain();
+      lfoGain.gain.setValueAtTime(140, now);
+      lfo.connect(lfoGain);
 
-      const screamGain = audioCtx.createGain();
-      screamGain.gain.setValueAtTime(0.85, now);
-      screamGain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+      const shriekA = audioCtx.createOscillator();
+      shriekA.type = 'sawtooth';
+      shriekA.frequency.setValueAtTime(780, now);
+      shriekA.frequency.exponentialRampToValueAtTime(1950, now + 0.25);
+      shriekA.frequency.exponentialRampToValueAtTime(420, now + 1.2);
+      shriekA.frequency.exponentialRampToValueAtTime(1650, now + duration);
 
-      scream1.connect(screamGain);
-      scream2.connect(screamGain);
-      screamGain.connect(masterGain);
+      const shriekB = audioCtx.createOscillator();
+      shriekB.type = 'square';
+      shriekB.frequency.setValueAtTime(1120, now);
+      shriekB.frequency.exponentialRampToValueAtTime(2420, now + 0.3);
+      shriekB.frequency.exponentialRampToValueAtTime(310, now + duration);
 
+      lfoGain.connect(shriekA.frequency);
+      lfoGain.connect(shriekB.frequency);
+
+      const shriekGain = audioCtx.createGain();
+      shriekGain.gain.setValueAtTime(0.95, now);
+      shriekGain.gain.exponentialRampToValueAtTime(0.02, now + duration);
+
+      shriekA.connect(shriekGain);
+      shriekB.connect(shriekGain);
+      shriekGain.connect(boostGain);
+
+      // 2. Heavy sub-bass impact boom
       const subOsc = audioCtx.createOscillator();
-      subOsc.type = 'triangle';
-      subOsc.frequency.setValueAtTime(115, now);
-      subOsc.frequency.exponentialRampToValueAtTime(34, now + 1.2);
+      subOsc.type = 'sawtooth';
+      subOsc.frequency.setValueAtTime(140, now);
+      subOsc.frequency.exponentialRampToValueAtTime(32, now + 0.9);
+
+      const subFilter = audioCtx.createBiquadFilter();
+      subFilter.type = 'lowpass';
+      subFilter.frequency.setValueAtTime(220, now);
 
       const subGain = audioCtx.createGain();
-      subGain.gain.setValueAtTime(0.95, now);
-      subGain.gain.exponentialRampToValueAtTime(0.01, now + 1.4);
+      subGain.gain.setValueAtTime(1.0, now);
+      subGain.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
 
-      subOsc.connect(subGain);
-      subGain.connect(masterGain);
+      subOsc.connect(subFilter);
+      subFilter.connect(subGain);
+      subGain.connect(boostGain);
 
+      // 3. Harsh noise burst for terrifying static & scream texture
       const bufferSize = Math.floor(audioCtx.sampleRate * duration);
       const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
       const output = noiseBuffer.getChannelData(0);
@@ -149,24 +222,27 @@
 
       const bandpass = audioCtx.createBiquadFilter();
       bandpass.type = 'bandpass';
-      bandpass.frequency.setValueAtTime(1600, now);
-      bandpass.Q.setValueAtTime(2.8, now);
+      bandpass.frequency.setValueAtTime(2100, now);
+      bandpass.frequency.exponentialRampToValueAtTime(950, now + duration);
+      bandpass.Q.setValueAtTime(3.2, now);
 
       const noiseGain = audioCtx.createGain();
-      noiseGain.gain.setValueAtTime(0.9, now);
-      noiseGain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+      noiseGain.gain.setValueAtTime(1.0, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.02, now + duration);
 
       whiteNoise.connect(bandpass);
       bandpass.connect(noiseGain);
-      noiseGain.connect(masterGain);
+      noiseGain.connect(boostGain);
 
-      scream1.start(now);
-      scream2.start(now);
+      lfo.start(now);
+      shriekA.start(now);
+      shriekB.start(now);
       subOsc.start(now);
       whiteNoise.start(now);
 
-      scream1.stop(now + duration);
-      scream2.stop(now + duration);
+      lfo.stop(now + duration);
+      shriekA.stop(now + duration);
+      shriekB.stop(now + duration);
       subOsc.stop(now + duration);
       whiteNoise.stop(now + duration);
     }
@@ -181,6 +257,9 @@
 
       const onReady = () => {
         audioUnlocked = true;
+        if (soundBtn) {
+          soundBtn.classList.add('hidden');
+        }
         if (pendingHorrorSound) {
           pendingHorrorSound = false;
           playMaxHorrorSound();
@@ -194,7 +273,14 @@
       }
     }
 
-    ['touchstart', 'pointerdown', 'click', 'keydown'].forEach((evt) => {
+    soundBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      unlockAudio();
+      triggerHorrorVibration();
+      playMaxHorrorSound();
+    });
+
+    ['touchstart', 'pointerdown', 'keydown'].forEach((evt) => {
       window.addEventListener(evt, unlockAudio, { passive: true });
     });
 
