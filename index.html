@@ -51,28 +51,29 @@
       bottom: 24px;
       left: 50%;
       transform: translateX(-50%);
-      padding: 10px 22px;
-      background: rgba(120, 0, 10, 0.75);
+      padding: 11px 24px;
+      background: #c80014;
       color: #ffffff;
-      border: 1px solid rgba(255, 70, 90, 0.8);
+      border: 2px solid #ff3b4e;
       border-radius: 999px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;
       letter-spacing: 1px;
       cursor: pointer;
-      z-index: 20;
-      box-shadow: 0 0 18px rgba(220, 0, 25, 0.55);
-      transition: opacity 0.3s ease, transform 0.2s ease, background 0.2s ease;
+      z-index: 30;
+      box-shadow: 0 0 22px rgba(255, 0, 30, 0.85);
+      transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    #sound-btn:hover {
+      background: #e60017;
+      box-shadow: 0 0 28px rgba(255, 25, 45, 1);
     }
 
     #sound-btn:active {
-      transform: translateX(-50%) scale(0.95);
-    }
-
-    #sound-btn.hidden {
-      opacity: 0;
-      pointer-events: none;
+      transform: translateX(-50%) scale(0.94);
+      background: #99000f;
     }
   </style>
 </head>
@@ -97,14 +98,13 @@
       return String(num).padStart(2, '0');
     }
 
-    // --- Web Audio Horror Sound & Vibration Engine ---
+    // --- Web Audio & Vibration Horror Engine (1 Minute Full Duration) ---
     const HORROR_DURATION_MS = 60000; // 1 minute
     const HORROR_DURATION_SEC = 60;   // 1 minute
 
     let audioCtx = null;
     let audioUnlocked = false;
     let pendingHorrorSound = false;
-    let lastTriggeredMinuteKey = '';
     let horrorFlashUntil = 0;
     let activeSoundStopTimer = null;
 
@@ -115,12 +115,12 @@
     function triggerHorrorVibration() {
       try {
         if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-          navigator.vibrate([220, 80, 260, 80, 350, 90, 300, 90, 400]);
+          navigator.vibrate([240, 70, 280, 70, 380, 80, 320, 80, 420]);
         }
       } catch (_) {}
     }
 
-    function makeDistortionCurve(amount = 140) {
+    function makeDistortionCurve(amount = 160) {
       const nSamples = 44100;
       const curve = new Float32Array(nSamples);
       const deg = Math.PI / 180;
@@ -138,7 +138,7 @@
       }
     }
 
-    // Plays a terrifying 1-minute sequence of shrieks, sub-bass booms, and static
+    // Plays terrifying horror shrieks, sub-bass booms, and static for a full 60 seconds
     function playMaxHorrorSound() {
       if (!audioCtx || audioCtx.state !== 'running') return;
       stopCurrentHorrorSound();
@@ -147,7 +147,7 @@
       const duration = HORROR_DURATION_SEC;
 
       const shaper = audioCtx.createWaveShaper();
-      shaper.curve = makeDistortionCurve(150);
+      shaper.curve = makeDistortionCurve(160);
       shaper.oversample = '4x';
 
       const compressor = audioCtx.createDynamicsCompressor();
@@ -158,11 +158,11 @@
       compressor.release.setValueAtTime(0.2, now);
 
       const boostGain = audioCtx.createGain();
-      boostGain.gain.setValueAtTime(1.8, now);
+      boostGain.gain.setValueAtTime(1.85, now);
 
       const masterGain = audioCtx.createGain();
       masterGain.gain.setValueAtTime(1.0, now);
-      masterGain.gain.setValueAtTime(1.0, now + duration - 0.4);
+      masterGain.gain.setValueAtTime(1.0, now + duration - 0.3);
       masterGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
       boostGain.connect(shaper);
@@ -170,13 +170,12 @@
       compressor.connect(masterGain);
       masterGain.connect(audioCtx.destination);
 
-      // Continuous horror oscillators modulated every 2 seconds across the full 60s
       const lfo = audioCtx.createOscillator();
       lfo.type = 'sine';
-      lfo.frequency.setValueAtTime(22, now);
+      lfo.frequency.setValueAtTime(25, now);
 
       const lfoGain = audioCtx.createGain();
-      lfoGain.gain.setValueAtTime(160, now);
+      lfoGain.gain.setValueAtTime(170, now);
       lfo.connect(lfoGain);
 
       const shriekA = audioCtx.createOscillator();
@@ -187,44 +186,43 @@
 
       const shriekGain = audioCtx.createGain();
 
-      // Sub-bass horror rumble
       const subOsc = audioCtx.createOscillator();
       subOsc.type = 'sawtooth';
 
       const subFilter = audioCtx.createBiquadFilter();
       subFilter.type = 'lowpass';
-      subFilter.frequency.setValueAtTime(210, now);
+      subFilter.frequency.setValueAtTime(220, now);
 
       const subGain = audioCtx.createGain();
 
-      // Modulate pitches and bursts every 2s for 60s (30 bursts)
+      // 30 horror bursts * 2 seconds = full 60 seconds
       for (let step = 0; step < 30; step++) {
         const tStart = now + step * 2.0;
-        const tMid = tStart + 0.65;
-        const tEnd = tStart + 1.95;
+        const tMid = tStart + 0.6;
+        const tEnd = tStart + 1.96;
 
-        const highA = step % 2 === 0 ? 1980 : 2350;
-        const lowA = step % 2 === 0 ? 440 : 320;
-        const highB = step % 2 === 0 ? 2480 : 1820;
-        const lowB = step % 2 === 0 ? 290 : 510;
+        const highA = step % 2 === 0 ? 2050 : 2420;
+        const lowA = step % 2 === 0 ? 450 : 310;
+        const highB = step % 2 === 0 ? 2550 : 1890;
+        const lowB = step % 2 === 0 ? 280 : 520;
 
-        shriekA.frequency.setValueAtTime(680, tStart);
+        shriekA.frequency.setValueAtTime(720, tStart);
         shriekA.frequency.exponentialRampToValueAtTime(highA, tMid);
         shriekA.frequency.exponentialRampToValueAtTime(lowA, tEnd);
 
-        shriekB.frequency.setValueAtTime(1050, tStart);
+        shriekB.frequency.setValueAtTime(1120, tStart);
         shriekB.frequency.exponentialRampToValueAtTime(highB, tMid);
         shriekB.frequency.exponentialRampToValueAtTime(lowB, tEnd);
 
-        shriekGain.gain.setValueAtTime(0.95, tStart);
-        shriekGain.gain.setValueAtTime(0.88, tStart + 1.4);
-        shriekGain.gain.exponentialRampToValueAtTime(0.18, tEnd);
+        shriekGain.gain.setValueAtTime(0.98, tStart);
+        shriekGain.gain.setValueAtTime(0.9, tStart + 1.45);
+        shriekGain.gain.exponentialRampToValueAtTime(0.22, tEnd);
 
-        subOsc.frequency.setValueAtTime(135, tStart);
-        subOsc.frequency.exponentialRampToValueAtTime(34, tStart + 1.2);
+        subOsc.frequency.setValueAtTime(145, tStart);
+        subOsc.frequency.exponentialRampToValueAtTime(32, tStart + 1.25);
 
         subGain.gain.setValueAtTime(1.0, tStart);
-        subGain.gain.exponentialRampToValueAtTime(0.15, tEnd);
+        subGain.gain.exponentialRampToValueAtTime(0.2, tEnd);
       }
 
       lfoGain.connect(shriekA.frequency);
@@ -238,7 +236,6 @@
       subFilter.connect(subGain);
       subGain.connect(boostGain);
 
-      // Filtered white noise across the full 60s
       const bufferSize = Math.floor(audioCtx.sampleRate * duration);
       const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
       const output = noiseBuffer.getChannelData(0);
@@ -251,12 +248,12 @@
 
       const bandpass = audioCtx.createBiquadFilter();
       bandpass.type = 'bandpass';
-      bandpass.frequency.setValueAtTime(1950, now);
-      bandpass.Q.setValueAtTime(3.0, now);
+      bandpass.frequency.setValueAtTime(2050, now);
+      bandpass.Q.setValueAtTime(3.2, now);
 
       const noiseGain = audioCtx.createGain();
-      noiseGain.gain.setValueAtTime(0.9, now);
-      noiseGain.gain.setValueAtTime(0.85, now + duration - 0.5);
+      noiseGain.gain.setValueAtTime(0.95, now);
+      noiseGain.gain.setValueAtTime(0.9, now + duration - 0.4);
       noiseGain.gain.exponentialRampToValueAtTime(0.01, now + duration);
 
       whiteNoise.connect(bandpass);
@@ -280,7 +277,7 @@
       }, HORROR_DURATION_MS);
     }
 
-    function unlockAudio() {
+    function ensureAudioContextAndPlay() {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return;
 
@@ -288,44 +285,42 @@
         audioCtx = new AudioContextClass();
       }
 
-      const onReady = () => {
+      const onRunning = () => {
         audioUnlocked = true;
-        if (soundBtn) {
-          soundBtn.classList.add('hidden');
-        }
-        if (pendingHorrorSound) {
-          pendingHorrorSound = false;
-          playMaxHorrorSound();
-        }
+        pendingHorrorSound = false;
+        playMaxHorrorSound();
       };
 
       if (audioCtx.state === 'suspended') {
-        audioCtx.resume().then(onReady).catch(() => {});
+        audioCtx.resume().then(onRunning).catch(() => {
+          pendingHorrorSound = true;
+        });
       } else {
-        onReady();
+        onRunning();
       }
     }
 
-    soundBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      unlockAudio();
-      triggerHorrorVibration();
-      playMaxHorrorSound();
-    });
-
-    ['touchstart', 'pointerdown', 'keydown'].forEach((evt) => {
-      window.addEventListener(evt, unlockAudio, { passive: true });
-    });
-
     function triggerHorrorEvent(t) {
-      horrorFlashUntil = Math.max(horrorFlashUntil, t + HORROR_DURATION_MS);
+      horrorFlashUntil = t + HORROR_DURATION_MS;
       triggerHorrorVibration();
       if (audioUnlocked && audioCtx && audioCtx.state === 'running') {
         playMaxHorrorSound();
       } else {
         pendingHorrorSound = true;
+        ensureAudioContextAndPlay();
       }
     }
+
+    // Clicking "click here" button always triggers 1-minute ghost, blood, and horror sound
+    soundBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      triggerHorrorEvent(performance.now());
+    });
+
+    // Tapping/clicking anywhere on the screen triggers 1-minute ghost, blood, and horror sound
+    canvas.addEventListener('pointerdown', () => {
+      triggerHorrorEvent(performance.now());
+    }, { passive: true });
 
     const darkMotionSpecks = Array.from({ length: 45 }, () => ({
       x: Math.random() * width,
@@ -639,19 +634,21 @@
     function drawBloodFrame(intensity, t) {
       ctx.save();
 
+      const pulse = 0.85 + 0.15 * Math.sin(t * 0.016);
+
       const edgeGrad = ctx.createRadialGradient(
         width * 0.5, height * 0.5, Math.min(width, height) * 0.25,
         width * 0.5, height * 0.5, Math.max(width, height) * 0.72
       );
       edgeGrad.addColorStop(0, 'rgba(120, 0, 0, 0)');
-      edgeGrad.addColorStop(0.7, `rgba(145, 0, 10, ${0.38 * intensity})`);
-      edgeGrad.addColorStop(1, `rgba(95, 0, 0, ${0.88 * intensity})`);
+      edgeGrad.addColorStop(0.7, `rgba(155, 0, 10, ${0.42 * intensity * pulse})`);
+      edgeGrad.addColorStop(1, `rgba(105, 0, 0, ${0.92 * intensity * pulse})`);
 
       ctx.fillStyle = edgeGrad;
       ctx.fillRect(0, 0, width, height);
 
-      const borderSize = Math.max(18, Math.min(width, height) * 0.045) * intensity;
-      ctx.fillStyle = `rgba(130, 0, 8, ${0.9 * intensity})`;
+      const borderSize = Math.max(18, Math.min(width, height) * 0.048) * intensity;
+      ctx.fillStyle = `rgba(135, 0, 8, ${0.92 * intensity})`;
       ctx.fillRect(0, 0, width, borderSize);
       ctx.fillRect(0, height - borderSize, width, borderSize);
       ctx.fillRect(0, 0, borderSize, height);
@@ -659,11 +656,11 @@
 
       bloodDrips.forEach((drip, idx) => {
         const dx = (drip.x / Math.max(1, width)) * width;
-        const dripLen = (drip.len + Math.sin(t * 0.008 + idx) * 14) * intensity;
+        const dripLen = (drip.len + Math.sin(t * 0.012 + idx) * 18) * intensity;
 
         const dripGrad = ctx.createLinearGradient(0, borderSize, 0, borderSize + dripLen);
-        dripGrad.addColorStop(0, `rgba(155, 0, 12, ${0.95 * intensity})`);
-        dripGrad.addColorStop(0.75, `rgba(110, 0, 8, ${0.82 * intensity})`);
+        dripGrad.addColorStop(0, `rgba(165, 0, 12, ${0.96 * intensity})`);
+        dripGrad.addColorStop(0.75, `rgba(115, 0, 8, ${0.85 * intensity})`);
         dripGrad.addColorStop(1, 'rgba(90, 0, 5, 0)');
 
         ctx.fillStyle = dripGrad;
@@ -678,26 +675,29 @@
     function drawUglyHorrorGhost(intensity, t) {
       ctx.save();
 
-      ctx.fillStyle = `rgba(12, 0, 2, ${0.72 * intensity})`;
+      ctx.fillStyle = `rgba(14, 0, 2, ${0.74 * intensity})`;
       ctx.fillRect(0, 0, width, height);
 
-      const shakeX = Math.sin(t * 0.09) * 10 * intensity;
-      const shakeY = Math.cos(t * 0.11) * 8 * intensity;
+      // Continuous violent movement & shaking throughout the full minute
+      const shakeX = Math.sin(t * 0.095) * 14 * intensity + Math.cos(t * 0.031) * 26 * intensity;
+      const shakeY = Math.cos(t * 0.115) * 11 * intensity + Math.sin(t * 0.024) * 18 * intensity;
+      const tiltAngle = Math.sin(t * 0.022) * 0.09 * intensity;
       const cx = width * 0.5 + shakeX;
       const cy = height * 0.52 + shakeY;
 
-      const ghostScale = Math.max(0.85, Math.min(width, height) / 420) * (0.92 + 0.08 * intensity);
+      const ghostScale = (Math.max(0.85, Math.min(width, height) / 420)) * (0.94 + 0.1 * Math.sin(t * 0.018)) * intensity;
 
       ctx.translate(cx, cy);
+      ctx.rotate(tiltAngle);
       ctx.scale(ghostScale, ghostScale);
 
       const shroudGrad = ctx.createLinearGradient(0, -170, 0, 190);
-      shroudGrad.addColorStop(0, `rgba(225, 220, 220, ${0.94 * intensity})`);
-      shroudGrad.addColorStop(0.55, `rgba(155, 145, 145, ${0.88 * intensity})`);
-      shroudGrad.addColorStop(1, `rgba(65, 5, 10, ${0.25 * intensity})`);
+      shroudGrad.addColorStop(0, `rgba(225, 220, 220, ${0.95 * intensity})`);
+      shroudGrad.addColorStop(0.55, `rgba(155, 145, 145, ${0.9 * intensity})`);
+      shroudGrad.addColorStop(1, `rgba(65, 5, 10, ${0.28 * intensity})`);
 
       ctx.fillStyle = shroudGrad;
-      ctx.strokeStyle = `rgba(170, 0, 15, ${0.85 * intensity})`;
+      ctx.strokeStyle = `rgba(180, 0, 15, ${0.9 * intensity})`;
       ctx.lineWidth = 3;
 
       ctx.beginPath();
@@ -708,7 +708,7 @@
       const teeth = 9;
       for (let i = teeth; i >= 0; i--) {
         const tx = -115 + (230 / teeth) * i;
-        const ty = 15 + (i % 2 === 0 ? 155 : 95) + Math.sin(t * 0.015 + i) * 10;
+        const ty = 15 + (i % 2 === 0 ? 155 : 95) + Math.sin(t * 0.02 + i) * 14;
         ctx.lineTo(tx, ty);
       }
       ctx.closePath();
@@ -717,24 +717,24 @@
 
       const eyePositions = [-44, 44];
       eyePositions.forEach((ex, idx) => {
-        const ey = -58 + (idx === 1 ? -5 : 4);
+        const ey = -58 + (idx === 1 ? -5 : 4) + Math.sin(t * 0.03 + idx) * 2.5;
         ctx.fillStyle = '#080001';
         ctx.beginPath();
         ctx.ellipse(ex, ey, 26, 33, idx === 0 ? -0.22 : 0.22, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.strokeStyle = `rgba(210, 10, 25, ${0.9 * intensity})`;
+        ctx.strokeStyle = `rgba(210, 10, 25, ${0.92 * intensity})`;
         ctx.lineWidth = 2.5;
         ctx.stroke();
 
         ctx.fillStyle = '#ff001e';
         ctx.beginPath();
-        ctx.arc(ex + Math.sin(t * 0.04) * 3, ey + 2, 7.5, 0, Math.PI * 2);
+        ctx.arc(ex + Math.sin(t * 0.05) * 4.5, ey + Math.cos(t * 0.04) * 3, 7.5, 0, Math.PI * 2);
         ctx.fill();
       });
 
       ctx.fillStyle = '#090001';
-      ctx.strokeStyle = `rgba(150, 0, 12, ${0.95 * intensity})`;
+      ctx.strokeStyle = `rgba(155, 0, 12, ${0.95 * intensity})`;
       ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.moveTo(-48, 12);
@@ -764,18 +764,10 @@
     function animate(time) {
       const t = typeof time === 'number' ? time : performance.now();
       const now = new Date();
-      const seconds = now.getSeconds();
-      const minuteKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}-${now.getMinutes()}`;
 
       // Ghost appears 5 seconds after entering the site
       if (!entryGhostTriggered && t - pageEnterTime >= 5000) {
         entryGhostTriggered = true;
-        triggerHorrorEvent(t);
-      }
-
-      // Ghost also appears whenever seconds reach 00
-      if (seconds === 0 && lastTriggeredMinuteKey !== minuteKey) {
-        lastTriggeredMinuteKey = minuteKey;
         triggerHorrorEvent(t);
       }
 
@@ -785,8 +777,7 @@
 
       const remainingMs = horrorFlashUntil - t;
       if (remainingMs > 0) {
-        // Fade out gently during the final 1.2 seconds of the 1-minute window
-        const intensity = Math.min(1, remainingMs / 1200);
+        const intensity = Math.min(1, remainingMs / 1000);
         drawBloodFrame(intensity, t);
         drawUglyHorrorGhost(intensity, t);
       }
