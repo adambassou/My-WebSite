@@ -1,359 +1,111 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>قريباً — عالم جديد قيد التجهيز</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900&display=swap" rel="stylesheet">
+  <title>Penguin</title>
   <style>
-    :root {
-      --bg-1: #fff6e5;
-      --bg-2: #ffe3f1;
-      --bg-3: #e3f4ff;
-      --ink: #231942;
-      --accent: #ff5d8f;
-      --accent-2: #6c63ff;
-      --gold: #ffb703;
-      --mint: #2ec4b6;
-      --card: rgba(255, 255, 255, 0.86);
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: 'Cairo', sans-serif;
-      min-height: 100vh;
-      color: var(--ink);
-      background:
-        radial-gradient(circle at 15% 20%, var(--bg-2), transparent 45%),
-        radial-gradient(circle at 85% 15%, var(--bg-3), transparent 45%),
-        radial-gradient(circle at 50% 90%, var(--bg-1), transparent 55%),
-        #fdf8f2;
-      overflow-x: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-    }
-
-    /* زينة كرتونية عائمة في الخلفية */
-    .decor {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    .shape {
-      position: absolute;
-      border-radius: 999px;
-      animation: floatSlow 6s ease-in-out infinite;
-      box-shadow: inset -6px -8px 14px rgba(0, 0, 0, 0.08), 0 12px 24px rgba(35, 25, 66, 0.08);
-    }
-
-    .s1 { width: 64px; height: 64px; top: 8%; right: 10%; background: var(--gold); animation-delay: 0s; }
-    .s2 { width: 44px; height: 44px; top: 22%; left: 12%; background: var(--mint); animation-delay: 1.2s; }
-    .s3 { width: 82px; height: 82px; bottom: 10%; right: 8%; background: #a8dadc; animation-delay: 2.1s; }
-    .s4 { width: 52px; height: 52px; bottom: 16%; left: 10%; background: #ffc6ff; animation-delay: 0.7s; }
-
-    @keyframes floatSlow {
-      0%, 100% { transform: translateY(0px) rotate(0deg); }
-      50% { transform: translateY(-14px) rotate(8deg); }
-    }
-
-    .card {
-      position: relative;
-      z-index: 1;
+    html, body {
       width: 100%;
-      max-width: 720px;
-      background: var(--card);
-      backdrop-filter: blur(14px);
-      border: 3px solid #ffffff;
-      border-radius: 36px;
-      padding: 36px 28px;
-      text-align: center;
-      box-shadow:
-        0 24px 60px rgba(35, 25, 66, 0.12),
-        0 10px 0 rgba(108, 99, 255, 0.12);
+      height: 100%;
+      overflow: hidden;
+      background-color: #030406;
     }
 
-    /* مجسم كرتوني 3D تفاعلي يتأثر بحركة المؤشر */
-    .stage-3d {
-      perspective: 900px;
-      margin: 0 auto 20px;
-      width: 180px;
-      height: 180px;
-      display: grid;
-      place-items: center;
-    }
-
-    .mascot-3d {
-      width: 148px;
-      height: 148px;
-      border-radius: 42px;
-      background: linear-gradient(145deg, #ff7aa2, #ff4d6d);
-      border: 4px solid #fff;
-      box-shadow:
-        inset -10px -12px 20px rgba(120, 0, 40, 0.22),
-        inset 10px 10px 18px rgba(255, 255, 255, 0.55),
-        0 18px 30px rgba(255, 77, 109, 0.35);
-      transform-style: preserve-3d;
-      transition: transform 0.18s ease-out;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-    }
-
-    /* قبعة احتفالية كرتونية أعلى المجسم */
-    .party-hat {
-      position: absolute;
-      top: -34px;
-      width: 0;
-      height: 0;
-      border-left: 26px solid transparent;
-      border-right: 26px solid transparent;
-      border-bottom: 46px solid var(--accent-2);
-      filter: drop-shadow(0 6px 8px rgba(35, 25, 66, 0.15));
-      transform: rotate(-10deg) translateZ(24px);
-    }
-
-    .party-hat::after {
-      content: "";
-      position: absolute;
-      top: -8px;
-      right: -8px;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: var(--gold);
-    }
-
-    .eyes {
-      display: flex;
-      gap: 22px;
-      transform: translateZ(28px);
-    }
-
-    .eye {
-      width: 22px;
-      height: 28px;
-      background: var(--ink);
-      border-radius: 999px;
-      position: relative;
-      animation: blink 4s infinite;
-    }
-
-    .eye::after {
-      content: "";
-      position: absolute;
-      top: 5px;
-      right: 5px;
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #fff;
-    }
-
-    @keyframes blink {
-      0%, 94%, 100% { transform: scaleY(1); }
-      97% { transform: scaleY(0.1); }
-    }
-
-    .smile {
-      width: 36px;
-      height: 18px;
-      border-bottom: 5px solid var(--ink);
-      border-radius: 0 0 30px 30px;
-      transform: translateZ(26px);
-    }
-
-    .badge {
-      display: inline-block;
-      background: #fff0f5;
-      color: var(--accent);
-      border: 2px solid #ffd6e4;
-      padding: 6px 16px;
-      border-radius: 999px;
-      font-weight: 800;
-      font-size: 0.9rem;
-      margin-bottom: 12px;
-    }
-
-    h1 {
-      font-size: clamp(1.7rem, 4vw, 2.5rem);
-      font-weight: 900;
-      line-height: 1.25;
-      margin-bottom: 12px;
-    }
-
-    p.lead {
-      font-size: 1.05rem;
-      color: #4a4063;
-      max-width: 520px;
-      margin: 0 auto 24px;
-      line-height: 1.7;
-    }
-
-    .countdown {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin-bottom: 24px;
-    }
-
-    .time-box {
-      background: #fff;
-      border: 2px solid #f0ecff;
-      border-radius: 22px;
-      padding: 14px 8px;
-      box-shadow: 0 8px 18px rgba(108, 99, 255, 0.08);
-    }
-
-    .time-box strong {
+    canvas {
       display: block;
-      font-size: 1.5rem;
-      font-weight: 900;
-      color: var(--accent-2);
+      width: 100vw;
+      height: 100vh;
     }
 
-    .time-box span {
-      font-size: 0.85rem;
-      color: #6c6482;
-      font-weight: 700;
-    }
-
-    .notify-form {
-      display: flex;
-      gap: 10px;
-      max-width: 460px;
-      margin: 0 auto;
-      flex-wrap: wrap;
-    }
-
-    .notify-form input {
-      flex: 1 1 220px;
-      padding: 14px 18px;
-      border-radius: 18px;
-      border: 2px solid #e2dcff;
-      font-family: inherit;
-      font-size: 0.95rem;
-      outline: none;
-      background: #fff;
-    }
-
-    .notify-form input:focus {
-      border-color: var(--accent-2);
-    }
-
-    .notify-form button {
-      padding: 14px 24px;
-      border: none;
-      border-radius: 18px;
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      color: #fff;
-      font-family: inherit;
-      font-weight: 800;
-      font-size: 0.95rem;
-      cursor: pointer;
-      box-shadow: 0 10px 20px rgba(108, 99, 255, 0.25);
-      transition: transform 0.15s ease;
-    }
-
-    .notify-form button:hover {
-      transform: translateY(-2px);
-    }
-
-    .msg {
-      margin-top: 12px;
-      min-height: 24px;
-      font-weight: 700;
-      color: var(--mint);
-      font-size: 0.92rem;
+    #penguinSource {
+      display: none;
     }
   </style>
 </head>
 <body>
-  <div class="decor" aria-hidden="true">
-    <div class="shape s1"></div>
-    <div class="shape s2"></div>
-    <div class="shape s3"></div>
-    <div class="shape s4"></div>
-  </div>
-
-  <main class="card">
-    <div class="stage-3d" id="stage3d">
-      <div class="mascot-3d" id="mascot3d">
-        <div class="party-hat"></div>
-        <div class="eyes">
-          <div class="eye"></div>
-          <div class="eye"></div>
-        </div>
-        <div class="smile"></div>
-      </div>
-    </div>
-
-    <div class="badge">✨ لمسات أخيرة قيد التحضير</div>
-    <h1>نحن نُزيّن موقعنا الجديد ليظهر بأجمل حُلّة!</h1>
-    <p class="lead">
-      نعمل حالياً على وضع اللمسات الأخيرة لإطلاق تجربة ممتعة ومميزة. عد قريباً أو اترك بريدك ليصلك إشعار الانطلاق.
-    </p>
-
-    <div class="countdown" id="countdown">
-      <div class="time-box"><strong id="days">00</strong><span>أيام</span></div>
-      <div class="time-box"><strong id="hours">00</strong><span>ساعات</span></div>
-      <div class="time-box"><strong id="minutes">00</strong><span>دقائق</span></div>
-      <div class="time-box"><strong id="seconds">00</strong><span>ثوانٍ</span></div>
-    </div>
-
-    <form class="notify-form" id="notifyForm">
-      <input type="email" id="emailInput" placeholder="أدخل بريدك الإلكتروني..." required />
-      <button type="submit">نبّهني عند الإطلاق</button>
-    </form>
-    <div class="msg" id="formMsg"></div>
-  </main>
+  <img id="penguinSource" src="./IMG_4593.jpeg" alt="" />
+  <canvas id="scene"></canvas>
 
   <script>
-    // إمالة ثلاثية الأبعاد تتفاعل مع حركة الماوس
-    const card = document.querySelector('.card');
-    const mascot = document.getElementById('mascot3d');
+    const canvas = document.getElementById('scene');
+    const ctx = canvas.getContext('2d');
+    const img = document.getElementById('penguinSource');
 
-    card.addEventListener('mousemove', (e) => {
-      const rect = card.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width - 0.5;
-      const y = (e.clientY - rect.top) / rect.height - 0.5;
-      mascot.style.transform = `rotateY(${x * 34}deg) rotateX(${-y * 34}deg)`;
+    let width = canvas.width = window.innerWidth;
+    let height = canvas.height = window.innerHeight;
+
+    window.addEventListener('resize', () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
     });
 
-    card.addEventListener('mouseleave', () => {
-      mascot.style.transform = 'rotateY(0deg) rotateX(0deg)';
-    });
+    const dustParticles = Array.from({ length: 85 }, () => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      r: Math.random() * 1.6 + 0.4,
+      speedX: -(Math.random() * 0.6 + 0.2),
+      speedY: (Math.random() - 0.5) * 0.25,
+      alpha: Math.random() * 0.35 + 0.08
+    }));
 
-    // عدّاد تنازلي (غيّر التاريخ إلى موعد الإطلاق الفعلي)
-    const targetDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime();
+    const hourglass = {
+      cycleDuration: 11000,
+      flipDuration: 1200,
+      grains: Array.from({ length: 45 }, (_, i) => ({
+        offset: i / 45,
+        xJitter: (Math.random() - 0.5) * 2.2
+      }))
+    };
 
-    function updateCountdown() {
-      const diff = Math.max(0, targetDate - Date.now());
-      document.getElementById('days').textContent = String(Math.floor(diff / 86400000)).padStart(2, '0');
-      document.getElementById('hours').textContent = String(Math.floor((diff % 86400000) / 3600000)).padStart(2, '0');
-      document.getElementById('minutes').textContent = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
-      document.getElementById('seconds').textContent = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
-    }
+    let processedPenguinCanvas = null;
+    let imageLoaded = false;
 
-    updateCountdown();
-    setInterval(updateCountdown, 1000);
+    function preparePenguinSprite() {
+      const off = document.createElement('canvas');
+      const octx = off.getContext('2d');
+      off.width = img.naturalWidth || 800;
+      off.height = img.naturalHeight || 800;
+      octx.drawImage(img, 0, 0, off.width, off.height);
 
-    // رسالة تأكيد بسيطة عند إرسال البريد
-    document.getElementById('notifyForm').addEventListener('submit', (e) => {
-      e.preventDefault();
-      document.getElementById('formMsg').textContent = '🎉 تم تسجيل بريدك بنجاح! سنخبرك فور الانطلاق.';
-      document.getElementById('emailInput').value = '';
-    });
-  </script>
-</body>
-</html>
+      try {
+        const imgData = octx.getImageData(0, 0, off.width, off.height);
+        const data = imgData.data;
 
+        const visited = new Uint8Array(off.width * off.height);
+        const stack = [];
+
+        function isDarkBg(idx) {
+          const r = data[idx];
+          const g = data[idx + 1];
+          const b = data[idx + 2];
+          return r < 24 && g < 24 && b < 24;
+        }
+
+        for (let x = 0; x < off.width; x++) {
+          stack.push(x, (off.height - 1) * off.width + x);
+        }
+        for (let y = 0; y < off.height; y++) {
+          stack.push(y * off.width, y * off.width + (off.width - 1));
+        }
+
+        while (stack.length > 0) {
+          const pos = stack.pop();
+          if (visited[pos]) continue;
+          visited[pos] = 1;
+
+          const idx = pos * 4;
+          if (isDarkBg(idx)) {
+            data[idx + 3] = 0;
+            const x = pos % off.width;
+            const y = (pos / off.width) | 0;
+            if (x > 0) stack.push(pos - 1);
+            if (x < off.width - 1) stack.push(pos + 1);
+            if (y > 0) stack.push(pos - off.width);
+            if (y < off.height - 1)
