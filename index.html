@@ -38,13 +38,28 @@
     const ctx = canvas.getContext('2d');
     const img = document.getElementById('penguinSource');
 
-    let width = canvas.width = window.innerWidth;
-    let height = canvas.height = window.innerHeight;
+    let width = canvas.width = window.innerWidth || 390;
+    let height = canvas.height = window.innerHeight || 844;
 
     window.addEventListener('resize', () => {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+      width = canvas.width = window.innerWidth || 390;
+      height = canvas.height = window.innerHeight || 844;
     });
+
+    function drawRoundedRect(x, y, w, h, r) {
+      const radius = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + w - radius, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+      ctx.lineTo(x + w, y + h - radius);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+      ctx.lineTo(x + radius, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+    }
 
     const dustParticles = Array.from({ length: 85 }, () => ({
       x: Math.random() * width,
@@ -65,16 +80,16 @@
     };
 
     let processedPenguinCanvas = null;
-    let imageLoaded = false;
+    let spriteReady = false;
 
     function preparePenguinSprite() {
-      const off = document.createElement('canvas');
-      const octx = off.getContext('2d');
-      off.width = img.naturalWidth || 800;
-      off.height = img.naturalHeight || 800;
-      octx.drawImage(img, 0, 0, off.width, off.height);
-
       try {
+        const off = document.createElement('canvas');
+        const octx = off.getContext('2d');
+        off.width = img.naturalWidth || 800;
+        off.height = img.naturalHeight || 800;
+        octx.drawImage(img, 0, 0, off.width, off.height);
+
         const imgData = octx.getImageData(0, 0, off.width, off.height);
         const data = imgData.data;
 
@@ -82,10 +97,7 @@
         const stack = [];
 
         function isDarkBg(idx) {
-          const r = data[idx];
-          const g = data[idx + 1];
-          const b = data[idx + 2];
-          return r < 24 && g < 24 && b < 24;
+          return data[idx] < 24 && data[idx + 1] < 24 && data[idx + 2] < 24;
         }
 
         for (let x = 0; x < off.width; x++) {
@@ -108,4 +120,311 @@
             if (x > 0) stack.push(pos - 1);
             if (x < off.width - 1) stack.push(pos + 1);
             if (y > 0) stack.push(pos - off.width);
-            if (y < off.height - 1)
+            if (y < off.height - 1) stack.push(pos + off.width);
+          }
+        }
+
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i + 3] > 0) {
+            const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3;
+            if (brightness < 32 && visited[i / 4]) {
+              data[i + 3] = 0;
+            }
+          }
+        }
+
+        octx.putImageData(imgData, 0, 0);
+        processedPenguinCanvas = off;
+        spriteReady = true;
+      } catch (e) {
+        spriteReady = false;
+      }
+    }
+
+    if (img.complete && img.naturalWidth > 0) {
+      preparePenguinSprite();
+    } else {
+      img.addEventListener('load', preparePenguinSprite);
+    }
+
+    let roadOffset = 0;
+
+    function drawDarkRoad(time) {
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+      bgGrad.addColorStop(0, '#020305');
+      bgGrad.addColorStop(0.55, '#06080c');
+      bgGrad.addColorStop(1, '#0b0e14');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, width, height);
+
+      const horizonY = height * 0.56;
+
+      const horizonGlow = ctx.createRadialGradient(
+        width * 0.5, horizonY, 10,
+        width * 0.5, horizonY, Math.max(width, height) * 0.55
+      );
+      horizonGlow.addColorStop(0, 'rgba(175, 195, 220, 0.14)');
+      horizonGlow.addColorStop(0.45, 'rgba(100, 118, 145, 0.05)');
+      horizonGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = horizonGlow;
+      ctx.fillRect(0, 0, width, height);
+
+      const roadTopWidth = width * 0.14;
+      const roadBottomWidth = width * 0.88;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(width * 0.5 - roadTopWidth * 0.5, horizonY);
+      ctx.lineTo(width * 0.5 + roadTopWidth * 0.5, horizonY);
+      ctx.lineTo(width * 0.5 + roadBottomWidth * 0.5, height);
+      ctx.lineTo(width * 0.5 - roadBottomWidth * 0.5, height);
+      ctx.closePath();
+
+      const roadGrad = ctx.createLinearGradient(0, horizonY, 0, height);
+      roadGrad.addColorStop(0, '#090c11');
+      roadGrad.addColorStop(0.4, '#0d1118');
+      roadGrad.addColorStop(1, '#07090d');
+      ctx.fillStyle = roadGrad;
+      ctx.fill();
+
+      ctx.lineWidth = 2.5;
+      const edgeGrad = ctx.createLinearGradient(0, horizonY, 0, height);
+      edgeGrad.addColorStop(0, 'rgba(180, 200, 225, 0.05)');
+      edgeGrad.addColorStop(0.5, 'rgba(195, 215, 240, 0.24)');
+      edgeGrad.addColorStop(1, 'rgba(160, 180, 210, 0.08)');
+      ctx.strokeStyle = edgeGrad;
+      ctx.stroke();
+
+      ctx.shadowColor = 'rgba(185, 205, 235, 0.28)';
+      ctx.shadowBlur = 22;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      ctx.clip();
+      roadOffset = (time * 0.09) % 120;
+      for (let i = -1; i < 12; i++) {
+        const progress = ((i * 120 + roadOffset) / (height - horizonY));
+        if (progress < 0 || progress > 1.2) continue;
+        const y = horizonY + Math.pow(progress, 1.55) * (height - horizonY);
+        const span = roadTopWidth * 0.5 + (roadBottomWidth - roadTopWidth) * 0.5 * Math.pow(progress, 1.55);
+
+        ctx.strokeStyle = `rgba(180, 200, 230, ${0.03 + progress * 0.06})`;
+        ctx.lineWidth = 1 + progress * 1.5;
+        ctx.beginPath();
+        ctx.moveTo(width * 0.5 - span, y);
+        ctx.lineTo(width * 0.5 + span, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawPenguin(time) {
+      const baseX = width * 0.5;
+      const baseY = height * 0.79;
+
+      const walkCycle = time * 0.0055;
+      const bobY = Math.abs(Math.sin(walkCycle)) * 11;
+      const swayAngle = Math.sin(walkCycle) * 0.045;
+      const strideX = Math.sin(walkCycle * 0.5) * 6;
+
+      const penguinHeight = Math.min(height * 0.42, 340);
+      const aspect = (img.naturalWidth && img.naturalHeight)
+        ? (img.naturalWidth / img.naturalHeight)
+        : 0.9;
+      const penguinWidth = penguinHeight * aspect;
+
+      const footGlow = ctx.createRadialGradient(
+        baseX + strideX, baseY + 6, 4,
+        baseX + strideX, baseY + 6, penguinWidth * 0.65
+      );
+      footGlow.addColorStop(0, 'rgba(210, 225, 245, 0.22)');
+      footGlow.addColorStop(0.5, 'rgba(150, 175, 210, 0.08)');
+      footGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = footGlow;
+      ctx.beginPath();
+      ctx.ellipse(baseX + strideX, baseY + 6, penguinWidth * 0.62, 22, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.68)';
+      ctx.beginPath();
+      ctx.ellipse(baseX + strideX, baseY + 4, penguinWidth * 0.34, 12, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.save();
+      ctx.translate(baseX + strideX, baseY - bobY);
+      ctx.rotate(swayAngle);
+
+      const sourceToDraw = (spriteReady && processedPenguinCanvas)
+        ? processedPenguinCanvas
+        : (img.complete && img.naturalWidth > 0 ? img : null);
+
+      if (sourceToDraw) {
+        ctx.drawImage(
+          sourceToDraw,
+          -penguinWidth * 0.5,
+          -penguinHeight,
+          penguinWidth,
+          penguinHeight
+        );
+      }
+
+      ctx.restore();
+    }
+
+    function drawInfiniteHourglass(time) {
+      const cx = width * 0.5;
+      const cy = Math.max(85, height * 0.14);
+      const h = 44;
+      const w = 28;
+
+      const cyclePos = time % hourglass.cycleDuration;
+      const flowPhaseDuration = hourglass.cycleDuration - hourglass.flipDuration;
+
+      let fillRatio = 0;
+      let rotation = 0;
+      let isFlipping = false;
+
+      if (cyclePos < flowPhaseDuration) {
+        fillRatio = cyclePos / flowPhaseDuration;
+        rotation = 0;
+      } else {
+        isFlipping = true;
+        const flipProgress = (cyclePos - flowPhaseDuration) / hourglass.flipDuration;
+        const ease = flipProgress < 0.5
+          ? 2 * flipProgress * flipProgress
+          : 1 - Math.pow(-2 * flipProgress + 2, 2) / 2;
+        rotation = ease * Math.PI;
+        fillRatio = 1;
+      }
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rotation);
+
+      const aura = ctx.createRadialGradient(0, 0, 4, 0, 0, 58);
+      aura.addColorStop(0, 'rgba(255, 255, 255, 0.14)');
+      aura.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = aura;
+      ctx.beginPath();
+      ctx.arc(0, 0, 58, 0, Math.PI * 2);
+      ctx.fill();
+
+      function hourglassPath() {
+        ctx.beginPath();
+        ctx.moveTo(-w, -h);
+        ctx.lineTo(w, -h);
+        ctx.bezierCurveTo(w, -h * 0.35, 3.2, -5, 2.6, 0);
+        ctx.bezierCurveTo(3.2, 5, w, h * 0.35, w, h);
+        ctx.lineTo(-w, h);
+        ctx.bezierCurveTo(-w, h * 0.35, -3.2, 5, -2.6, 0);
+        ctx.bezierCurveTo(-3.2, -5, -w, -h * 0.35, -w, -h);
+        ctx.closePath();
+      }
+
+      hourglassPath();
+      ctx.fillStyle = '#050507';
+      ctx.fill();
+
+      ctx.save();
+      hourglassPath();
+      ctx.clip();
+
+      const topSandLevel = (1 - fillRatio);
+      const bottomSandLevel = fillRatio;
+
+      if (topSandLevel > 0.01) {
+        const topY = -h * topSandLevel;
+        ctx.fillStyle = '#f5f7fa';
+        ctx.beginPath();
+        ctx.moveTo(-w - 5, topY);
+        ctx.quadraticCurveTo(0, topY + 4 * (1 - topSandLevel), w + 5, topY);
+        ctx.lineTo(w + 5, 0);
+        ctx.lineTo(-w - 5, 0);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      if (bottomSandLevel > 0.01) {
+        const botY = h - (h * 0.92 * bottomSandLevel);
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.moveTo(-w - 5, h + 5);
+        ctx.lineTo(-w - 5, botY + 4);
+        ctx.quadraticCurveTo(0, botY - 6 * (1 - bottomSandLevel * 0.4), w + 5, botY + 4);
+        ctx.lineTo(w + 5, h + 5);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      if (!isFlipping && fillRatio < 0.995) {
+        const streamBottom = h - (h * 0.9 * bottomSandLevel);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, streamBottom);
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        hourglass.grains.forEach((g) => {
+          const p = ((time * 0.0022 + g.offset) % 1);
+          const gy = p * streamBottom;
+          const gx = g.xJitter * (p * 0.8);
+          ctx.fillRect(gx - 0.7, gy, 1.4, 1.4);
+        });
+      }
+
+      ctx.restore();
+
+      hourglassPath();
+      ctx.strokeStyle = 'rgba(220, 228, 240, 0.55)';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+
+      ctx.fillStyle = '#08090c';
+      ctx.strokeStyle = 'rgba(210, 220, 235, 0.65)';
+      ctx.lineWidth = 1.4;
+
+      drawRoundedRect(-w - 5, -h - 6, (w + 5) * 2, 6, 2);
+      ctx.fill();
+      ctx.stroke();
+
+      drawRoundedRect(-w - 5, h, (w + 5) * 2, 6, 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function drawDust() {
+      dustParticles.forEach((p) => {
+        p.x += p.speedX;
+        p.y += p.speedY;
+
+        if (p.x < 0) p.x = width;
+        if (p.y < 0) p.y = height;
+        if (p.y > height) p.y = 0;
+
+        ctx.fillStyle = `rgba(210, 225, 245, ${p.alpha})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    function animate(time) {
+      const t = typeof time === 'number' ? time : performance.now();
+      try {
+        drawDarkRoad(t);
+        drawDust();
+        drawPenguin(t);
+        drawInfiniteHourglass(t);
+      } catch (e) {
+      }
+      requestAnimationFrame(animate);
+    }
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
